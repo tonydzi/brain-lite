@@ -1,0 +1,10 @@
+* text=auto eol=lf
+*.ps1 text eol=crlf
+# Not shipped to friends: only Anton's workshop
+.gitattributes export-ignore
+.github export-ignore
+tools export-ignore
+tests export-ignore
+.gitignore export-ignore
+CITATION.cff export-ignore
+FOR-ROBOTS.md export-ignore

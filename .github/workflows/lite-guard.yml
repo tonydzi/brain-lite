@@ -1,0 +1,73 @@
+name: lite-guard
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: guard + recipe (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: zsh for the recipe test (Claude Code on Mac runs commands in zsh)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zsh
+      - name: lite_guard (what ships to friends)
+        run: python3 tools/lite_guard.py
+      - name: guard turns red on every breakage
+        run: bash tests/test_guard.sh
+      - name: UPDATE.md sh recipe in bash, zsh, sh, dash; green and red scenarios
+        run: bash tests/test_update.sh
+      - name: release archive is reproducible in any timezone
+        run: bash tests/test_release.sh
+
+  windows:
+    name: recipe (Windows, ${{ matrix.shell }})
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [pwsh, powershell]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: UPDATE.md PowerShell recipe, green and red scenarios
+        shell: ${{ matrix.shell }}
+        run: ./tests/test_update.ps1
+
+  reproducible:
+    name: release asset == git archive of tag
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: rebuild and compare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          python3 tools/lite_guard.py --tag "$TAG"
+          mkdir rel && gh release download "$TAG" -D rel
+          (cd rel && sha256sum -c SHA256SUMS.txt)
+          TZ=UTC git archive --format=zip -0 --prefix=lite/ -o rebuilt.zip "$TAG"
+          A=$(sha256sum rebuilt.zip | cut -d' ' -f1); B=$(cut -d' ' -f1 rel/SHA256SUMS.txt)
+          echo "rebuilt=$A published=$B"
+          [ "$A" = "$B" ]
+          git show "$TAG:UPDATE.md" | cmp - rel/UPDATE.md && echo "UPDATE.md asset == tag"
