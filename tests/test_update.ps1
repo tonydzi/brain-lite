@@ -39,7 +39,14 @@ function New-Release($dir, $version) {
   git -C $Repo archive --format=zip --prefix=lite/ -o $tmp HEAD
   [IO.Compression.ZipFile]::ExtractToDirectory($tmp, $src)
   [IO.File]::WriteAllText((Join-Path $src 'lite/VERSION'), "$version`n")
-  [IO.Compression.ZipFile]::CreateFromDirectory((Join-Path $src 'lite'), (Join-Path $dir 'brain-lite.zip'), 'Optimal', $true)
+  # Build entries by hand with forward slashes: on .NET Framework (PS 5.1) CreateFromDirectory writes 'lite\x'.
+  $z = [IO.Compression.ZipFile]::Open((Join-Path $dir 'brain-lite.zip'), 'Create')
+  $base = (Resolve-Path $src).Path
+  foreach ($f in Get-ChildItem (Join-Path $src 'lite') -Recurse -File -Force) {
+    $name = $f.FullName.Substring($base.Length + 1).Replace('\', '/')
+    [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($z, $f.FullName, $name)
+  }
+  $z.Dispose()
   Write-Sums $dir
 }
 function New-EvilZip($dir, $names) {
@@ -94,6 +101,7 @@ try {
   New-EvilZip "$W/rslip" @('lite/VERSION', 'lite/../evil.md'); ExpectStop 'zip-slip' "$W/rslip" 'suspicious paths'
   New-EvilZip "$W/rout" @('lite/VERSION', 'other/x.md'); ExpectStop 'path outside lite/' "$W/rout" 'suspicious paths'
   New-EvilZip "$W/rupper" @('lite/VERSION', 'LITE/x.md'); ExpectStop 'LITE/ in other case' "$W/rupper" 'suspicious paths'
+  New-EvilZip "$W/rbslash" @('lite/VERSION', 'lite\..\..\evil.md'); ExpectStop 'backslash zip-slip' "$W/rbslash" 'suspicious paths'
   New-EvilZip "$W/rnotpl" @('lite/VERSION', 'lite/RULES.md', 'lite/UPDATE.md', 'lite/CHANGELOG.md'); ExpectStop 'missing required file' "$W/rnotpl" 'archive has no lite/templates'
   New-Item -ItemType Directory -Force "$W/rlink" | Out-Null
   $z = [IO.Compression.ZipFile]::Open((Join-Path "$W/rlink" 'brain-lite.zip'), 'Create')
