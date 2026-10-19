@@ -46,8 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: UPDATE.md PowerShell recipe, green and red scenarios
-        shell: ${{ matrix.shell }}
-        run: ./tests/test_update.ps1
+        run: ${{ matrix.shell }} -NoProfile -ExecutionPolicy Bypass -File tests/test_update.ps1
 
   reproducible:
     name: release asset == git archive of tag
