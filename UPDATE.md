@@ -165,10 +165,12 @@ Set-Location $Root
 if (-not (Test-Path lite)) { 'No lite folder yet: first install' }
 if (Test-Path _dl) { Remove-Item -Recurse -Force _dl }
 New-Item -ItemType Directory _dl | Out-Null
-& $Curl -fsSL --proto '=https' --proto-redir '=https' -o _dl/SHA256SUMS.txt "$Base/SHA256SUMS.txt"
-if ($LASTEXITCODE) { throw 'STOP: download of SHA256SUMS.txt failed' }
-& $Curl -fsSL --proto '=https' --proto-redir '=https' -o _dl/brain-lite.zip "$Base/brain-lite.zip"
-if ($LASTEXITCODE) { throw 'STOP: download of brain-lite.zip failed' }
+$ErrorActionPreference = 'Continue'  # PowerShell 5.1 turns curl's stderr into an exception before the check below
+& $Curl -fsSL --proto '=https' --proto-redir '=https' -o _dl/SHA256SUMS.txt "$Base/SHA256SUMS.txt"; $rc1 = $LASTEXITCODE
+if (-not $rc1) { & $Curl -fsSL --proto '=https' --proto-redir '=https' -o _dl/brain-lite.zip "$Base/brain-lite.zip"; $rc2 = $LASTEXITCODE }
+$ErrorActionPreference = 'Stop'
+if ($rc1) { throw 'STOP: download of SHA256SUMS.txt failed' }
+if ($rc2) { throw 'STOP: download of brain-lite.zip failed' }
 $line = Get-Content _dl/SHA256SUMS.txt | Where-Object { $_ -match '[ *]brain-lite\.zip$' } | Select-Object -First 1
 if (-not $line) { throw 'STOP: no archive line in SHA256SUMS.txt' }
 $expected = ($line -split '\s+')[0].ToLower()
