@@ -89,7 +89,7 @@ def main():
             meta = json.loads(fetch(f"https://api.github.com/repos/{cfg['repo']}/commits/{cfg['ref']}"))
             sha, date = meta["sha"], meta["commit"]["committer"]["date"]
             tar = tarfile.open(fileobj=io.BytesIO(fetch(f"https://codeload.github.com/{cfg['repo']}/tar.gz/{sha}")))
-        except (urllib.error.URLError, OSError, KeyError, ValueError) as e:
+        except (urllib.error.URLError, OSError, KeyError, TypeError, ValueError) as e:
             print(f"ОШИБКА: не смог получить набор: {e}")
             return 1
         members = {m.name.split("/", 1)[1]: m for m in tar.getmembers() if "/" in m.name and m.isfile()}

@@ -21,6 +21,8 @@ concurrency:
 
 jobs:
   prepare:
+    # Only main may publish: a manual run from another branch must not push that branch into main.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       release: ${{ steps.need.outputs.release }}
