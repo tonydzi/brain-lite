@@ -6,10 +6,14 @@ operator's policies or lets you install anything on your own.
 
 ## Alpha, ranked
 
-1. **Ship the method, not the vault.** A friend's agent gets 13 text files (rules, four
-   skills, a first task, an update recipe), not the 978-file catalog of the parent kit.
+1. **Ship the method, not the vault.** A friend's agent gets about 30 text files (the law,
+   9 skills, a second-brain skeleton, note templates, an update recipe), not the 978-file
+   catalog of the parent kit. The law and one skill are synced from the kit by
+   `tools/sync_upstream.py` (cleaned on intake) and released automatically by
+   `.github/workflows/autorelease.yml` after the full test matrix; `law/FLOOR.md` is pinned by hash
+   (`tools/law-floor.sha256`), so a change to the safety floor always needs a human.
    The set is enforced by `tools/lite_guard.py` over `git archive HEAD`: only `.md`,
-   `VERSION`, `LICENSE`; at most 30 files and 200 KB; no secrets, private paths or e-mails.
+   `VERSION`, `LICENSE`; at most 60 files and 400 KB; no secrets, private paths or e-mails.
 2. **Sync = one-way release, applied by the owner's own agent.** `UPDATE.md` downloads
    `brain-lite.zip` + `SHA256SUMS.txt`, verifies, rejects `..`, paths outside `lite/`,
    symlinks and missing files, shows the diff, waits for the owner's "yes", swaps

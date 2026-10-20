@@ -24,8 +24,8 @@ $RelUrl = [Uri]::new((Join-Path $W 'releases') + [IO.Path]::DirectorySeparatorCh
 $text = [IO.File]::ReadAllText((Join-Path $Repo 'UPDATE.md'), [Text.Encoding]::UTF8)
 $win = $text.Substring($text.IndexOf('## Windows'))
 $blocks = @([regex]::Matches($win, '```powershell\r?\n(.*?)```', 'Singleline') | ForEach-Object { $_.Groups[1].Value })
-if ($blocks.Count -ne 3) { throw "expected 3 powershell blocks, found $($blocks.Count)" }
-for ($i = 0; $i -lt 3; $i++) {
+if ($blocks.Count -ne 4) { throw "expected 4 powershell blocks, found $($blocks.Count)" }
+for ($i = 0; $i -lt 4; $i++) {
   $b = $blocks[$i].Replace('https://github.com/tonydzi/brain-lite/releases/', $RelUrl).Replace('=https', '=file').Replace('Join-Path $HOME', "Join-Path '$HomeDir'")
   if ($b -match '[^\x00-\x7F]') { throw "block $i has non-ASCII characters (breaks Windows PowerShell 5.1)" }
   [IO.File]::WriteAllText((Join-Path $W "block$i.ps1"), $b)
@@ -48,6 +48,7 @@ function New-Release($dir, $version) {
   }
   $z.Dispose()
   Write-Sums $dir
+  [IO.File]::WriteAllText((Join-Path $dir 'VERSION'), "$version`n")
 }
 function New-EvilZip($dir, $names) {
   New-Item -ItemType Directory -Force $dir | Out-Null
@@ -67,6 +68,7 @@ function Run($n, $relDir, $recipeDir = $W, $cwd = $W) {
   catch { $_.ToString() | Add-Content $Log; return $false }
   finally { Set-Location $here }
 }
+function MwHash { (Get-ChildItem "$H/My-Work" -Recurse -File -Force | Where-Object { $_.Name -notin 'AGENTS.md', '.lite-last-check' } | Sort-Object FullName | ForEach-Object { Sha $_.FullName }) -join ',' }
 function TreeHash($p) { (Get-ChildItem $p -Recurse -File -Force | Sort-Object FullName | ForEach-Object { Sha $_.FullName }) -join ',' }
 function LogText { if (Test-Path $Log) { [IO.File]::ReadAllText($Log) } else { '' } }
 function Ver($p) { (Get-Content (Join-Path $H "$p/VERSION") -ErrorAction SilentlyContinue | Select-Object -First 1) }
@@ -74,12 +76,17 @@ function Ver($p) { (Get-Content (Join-Path $H "$p/VERSION") -ErrorAction Silentl
 try {
   'Green'
   New-Release (Join-Path $W 'r100') '1.0.0'; New-Release (Join-Path $W 'r101') '1.0.1'
-  if ((Run 0 "$W/r100") -and (Run 1 $null) -and ((Ver lite) -eq '1.0.0') -and (Test-Path "$H/My-Work/AGENTS.md") -and (Test-Path "$H/lite/.claude/skills/lite-check/SKILL.md") -and -not (Test-Path "$H/_dl")) { Ok 'fresh install' } else { Bad 'fresh install'; LogText }
-  [IO.File]::WriteAllText("$H/My-Work/mine.txt", 'mine'); $mw = TreeHash "$H/My-Work"
+  if ((Run 0 "$W/r100") -and (Run 1 $null) -and ((Ver lite) -eq '1.0.0') -and (Test-Path "$H/My-Work/AGENTS.md") -and (Test-Path "$H/lite/.claude/skills/lite-check/SKILL.md") -and -not (Test-Path "$H/_dl") -and (@(Get-ChildItem "$H/My-Work/Brain" -Recurse -Filter README.md).Count -eq 12) -and (Test-Path "$H/lite/law/FLOOR.md")) { Ok 'fresh install with law and 11-layer brain' } else { Bad 'fresh install'; LogText }
+  if ((Get-Content "$H/My-Work/AGENTS.md" -Raw) -match 'AGENTS-CORE') { Ok 'fresh memo points to AGENTS-CORE' } else { Bad 'fresh memo lacks AGENTS-CORE' }
+  [IO.File]::WriteAllText("$H/My-Work/AGENTS.md", "old style memo`n")
+  [IO.File]::WriteAllText("$H/My-Work/mine.txt", 'mine')
+  [IO.File]::WriteAllText("$H/My-Work/Brain/03-Insights/2026-10-19-lesson.md", 'my note')
+  [IO.File]::AppendAllText("$H/My-Work/Brain/README.md", 'edit')
+  $mw = MwHash
   if ((Run 0 "$W/r101") -and ((LogText) -match 'New version: 1.0.1') -and ((LogText) -match 'Source: file:') -and ((LogText) -match 'VERSION') -and ((Ver lite) -eq '1.0.0')) { Ok 'step 1 shows source, version, changed files; changes nothing' } else { Bad 'step 1 update'; LogText }
-  if ((Run 1 $null) -and ((Ver lite) -eq '1.0.1') -and ((Ver lite-prev) -eq '1.0.0') -and ((TreeHash "$H/My-Work") -eq $mw) -and -not (Test-Path "$H/_old")) { Ok 'update, lite-prev kept, My-Work byte-identical' } else { Bad 'update'; LogText }
+  if ((Run 1 $null) -and ((Ver lite) -eq '1.0.1') -and ((Ver lite-prev) -eq '1.0.0') -and ((MwHash) -eq $mw) -and -not (Test-Path "$H/_old") -and ((Get-Content "$H/My-Work/AGENTS.md" -First 1) -eq 'old style memo') -and (@(Select-String -Path "$H/My-Work/AGENTS.md" -Pattern 'AGENTS-CORE').Count -eq 2)) { Ok 'update: lite-prev kept, brain and files byte-identical, old memo got the AGENTS-CORE line' } else { Bad 'update'; LogText }
   if ((Run 2 $null) -and ((Ver lite) -eq '1.0.0')) { Ok 'rollback' } else { Bad 'rollback'; LogText }
-  if ((Run 2 $null) -and ((Ver lite) -eq '1.0.1') -and ((TreeHash "$H/My-Work") -eq $mw)) { Ok 'second rollback returns 1.0.1' } else { Bad 'second rollback'; LogText }
+  if ((Run 2 $null) -and ((Ver lite) -eq '1.0.1') -and ((MwHash) -eq $mw)) { Ok 'second rollback returns 1.0.1' } else { Bad 'second rollback'; LogText }
   $real = Join-Path $W 'rreal'; New-Item -ItemType Directory $real | Out-Null
   git -C $Repo archive --format=zip -0 --prefix=lite/ -o (Join-Path $real 'brain-lite.zip') HEAD; Write-Sums $real
   if (Run 0 $real) { Ok 'real git-archive zip (with directory entries) passes path checks' } else { Bad 'real git-archive zip rejected'; LogText }
@@ -87,6 +94,16 @@ try {
   Add-Content (Join-Path $extra 'SHA256SUMS.txt') ('0' * 64 + '  other-asset.txt')
   if (Run 0 $extra) { Ok 'extra line in SHA256SUMS is ignored' } else { Bad 'extra line in SHA256SUMS'; LogText }
   Remove-Item -Recurse -Force "$H/_dl"
+
+  'Update check'
+  if ((Run 3 "$W/r101") -and ((LogText) -match 'No updates, installed 1.0.1') -and (Test-Path "$H/My-Work/.lite-last-check")) { Ok 'check: same version' } else { Bad 'check: same'; LogText }
+  New-Release (Join-Path $W 'r120') '1.2.0'
+  if ((Run 3 "$W/r120") -and ((LogText) -match 'Update available: 1.0.1 -> 1.2.0') -and ((Ver lite) -eq '1.0.1')) { Ok 'check: newer version, nothing installed' } else { Bad 'check: newer'; LogText }
+  if ((Run 3 "$W/r100") -and ((LogText) -match 'rolled back')) { Ok 'check: rolled back from latest' } else { Bad 'check: rollback'; LogText }
+  New-Item -ItemType Directory -Force "$W/rnocheck" | Out-Null
+  if ((Run 3 "$W/rnocheck") -and ((LogText) -match 'Could not check')) { Ok 'check without network: polite' } else { Bad 'check offline'; LogText }
+  New-Item -ItemType Directory -Force "$W/rjunk" | Out-Null; [IO.File]::WriteAllText("$W/rjunk/VERSION", '<html>')
+  if ((Run 3 "$W/rjunk") -and ((LogText) -match 'Could not check')) { Ok 'check: junk is not a version' } else { Bad 'check junk'; LogText }
 
   'Red'
   function ExpectStop($name, $relDir, $pattern) {

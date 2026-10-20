@@ -1,0 +1,13 @@
+{
+  "repo": "tonydzi/second-brain-starter-kit",
+  "ref": "master",
+  "files": {
+    "law/FLOOR.md": "law/FLOOR.md",
+    "law/CORE.md": "law/CORE.md",
+    "skills/continue/SKILL.md": ".claude/skills/continue/SKILL.md"
+  },
+  "transforms": {
+    "law/CORE.md": ["core_lite"],
+    "skills/continue/SKILL.md": ["kit_footer"]
+  }
+}

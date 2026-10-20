@@ -35,6 +35,8 @@ jobs:
         run: bash tests/test_update.sh
       - name: release archive is reproducible in any timezone
         run: bash tests/test_release.sh
+      - name: autorelease logic (sync from kit, release only on shipped changes)
+        run: bash tests/test_autorelease.sh
 
   windows:
     name: recipe (Windows, ${{ matrix.shell }})

@@ -23,7 +23,9 @@ x=$(build America/Los_Angeles ""); y=$(build Asia/Tokyo "")
 git clone -q "$ROOT" "$W/c"
 if (cd "$W/c" && bash tools/make_release.sh "v$(cat VERSION)" --dry-run) >"$W/log" 2>&1; then
   n=$(unzip -Z1 "$W/c/dist/brain-lite.zip" | grep -vc '/$')
-  [ "$n" = 13 ] && ok "make_release --dry-run: 13 файлов, сумма сходится" || bad "в архиве $n файлов"
+  want=$(git -C "$W/c" archive HEAD | tar -t | grep -vc '/$')
+  [ "$n" = "$want" ] && ok "make_release --dry-run: $n файлов, как в git archive, сумма сходится" || bad "в архиве $n файлов, ждали $want"
+  cmp -s "$W/c/dist/VERSION" "$W/c/VERSION" && ok "VERSION идёт отдельным файлом релиза" || bad "dist/VERSION нет или другой"
   cmp -s "$W/c/dist/UPDATE.md" "$W/c/UPDATE.md" && ok "UPDATE.md идёт третьим файлом релиза, тот же, что в теге" || bad "dist/UPDATE.md нет или другой"
   unzip -Z1 "$W/c/dist/brain-lite.zip" | grep -qE '^lite/(tools|tests|\.github)/' && bad "в архив попала мастерская" || ok "tools/tests/.github в архив не попали"
 else bad "make_release --dry-run упал"; cat "$W/log"; fi

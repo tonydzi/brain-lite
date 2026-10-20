@@ -37,7 +37,7 @@ text = pathlib.Path(sys.argv[1]).read_text()
 w = sys.argv[2]
 mac = text.split("## Windows")[0]
 blocks = re.findall(r"```sh\n(.*?)```", mac, re.S)
-assert len(blocks) == 3, f"ожидалось 3 sh-блока, найдено {len(blocks)}"
+assert len(blocks) == 4, f"ожидалось 4 sh-блока, найдено {len(blocks)}"
 for i, b in enumerate(blocks):
     b = b.replace("https://github.com/tonydzi/brain-lite/releases/", f"file://{w}/releases/").replace("=https", "=file")
     pathlib.Path(w, f"block{i}.sh").write_text(b)
@@ -51,6 +51,7 @@ mkrel() { # mkrel <dir> <version> : релиз из HEAD с подменённо
   echo "$v" > "$src/lite/VERSION"
   (cd "$src" && zip -qrX "$d/brain-lite.zip" lite)
   (cd "$d" && $SUM brain-lite.zip > SHA256SUMS.txt)
+  echo "$v" > "$d/VERSION"
 }
 mkdir -p "$W/home"
 H="$W/home/Second-Brain-Lite"
@@ -60,6 +61,7 @@ run() { # run <block#> [release dir] [recipe dir] [cwd]
   (cd "${4:-$W}" && HOME="$W/home" "$SUT" "${3:-$W}/block$1.sh") >"$W/last.log" 2>&1
 }
 tree_hash() { (cd "$1" && find . -type f -print0 | sort -z | xargs -0 $SUM) | $SUM | cut -d' ' -f1; }
+mw_hash() { (cd "$H/My-Work" && find . -type f ! -name AGENTS.md ! -name .lite-last-check -print0 | sort -z | xargs -0 $SUM) | $SUM | cut -d' ' -f1; }
 
 echo "Зелёные сценарии"
 mkrel "$W/r100" 1.0.0
@@ -67,23 +69,40 @@ mkrel "$W/r101" 1.0.1
 run 0 "$W/r100" && run 1 && [ "$(cat "$H/lite/VERSION")" = 1.0.0 ] && [ ! -d "$H/lite-prev" ] \
   && [ -f "$H/My-Work/AGENTS.md" ] && grep -qx '@AGENTS.md' "$H/My-Work/CLAUDE.md" \
   && [ -f "$H/lite/.claude/skills/lite-check/SKILL.md" ] && [ ! -e "$H/_dl" ] \
-  && ok "установка с нуля: lite 1.0.0, My-Work с памяткой" || { bad "установка с нуля"; cat "$W/last.log"; }
-echo "моё" > "$H/My-Work/mine.txt"; echo "свой AGENTS" > "$H/My-Work/AGENTS.md"
-MW="$(tree_hash "$H/My-Work")"
+  && [ "$(find "$H/My-Work/Brain" -name README.md | wc -l | tr -d ' ')" = 12 ] && [ -f "$H/lite/law/FLOOR.md" ] \
+  && ok "установка с нуля: lite 1.0.0, закон, My-Work с памяткой и мозгом (11 слоёв)" || { bad "установка с нуля"; cat "$W/last.log"; }
+grep -q 'AGENTS-CORE' "$H/My-Work/AGENTS.md" && ok "свежая памятка ссылается на AGENTS-CORE" || bad "в свежей памятке нет AGENTS-CORE"
+echo "моё" > "$H/My-Work/mine.txt"; echo "свой AGENTS старого образца" > "$H/My-Work/AGENTS.md"
+echo "моя заметка" > "$H/My-Work/Brain/03-Insights/2026-10-19-урок.md"; echo "правка" >> "$H/My-Work/Brain/README.md"
+MW="$(mw_hash)"
 run 0 "$W/r101" && grep -q 'Новая версия: 1.0.1' "$W/last.log" && grep -q 'Текущая версия: 1.0.0' "$W/last.log" \
   && grep -q 'VERSION differ' "$W/last.log" && grep -q 'Источник: file://' "$W/last.log" && [ "$(cat "$H/lite/VERSION")" = 1.0.0 ] \
   && ok "шаг 1 обновления показывает источник, версии и diff, ничего не меняет" || { bad "шаг 1 обновления"; cat "$W/last.log"; }
 run 1 && [ "$(cat "$H/lite/VERSION")" = 1.0.1 ] && [ "$(cat "$H/lite-prev/VERSION")" = 1.0.0 ] \
-  && [ "$(tree_hash "$H/My-Work")" = "$MW" ] && [ ! -e "$H/_old" ] \
-  && ok "обновление 1.0.0 -> 1.0.1, откат в lite-prev, My-Work побайтно цел" || { bad "обновление"; cat "$W/last.log"; }
+  && [ "$(mw_hash)" = "$MW" ] && [ ! -e "$H/_old" ] \
+  && [ "$(head -1 "$H/My-Work/AGENTS.md")" = "свой AGENTS старого образца" ] && [ "$(grep -c 'AGENTS-CORE' "$H/My-Work/AGENTS.md")" = 2 ] \
+  && ok "обновление 1.0.0 -> 1.0.1: lite-prev, мозг и файлы побайтно целы, старой памятке дописана ссылка на AGENTS-CORE" || { bad "обновление"; cat "$W/last.log"; }
 run 2 && [ "$(cat "$H/lite/VERSION")" = 1.0.0 ] && [ "$(cat "$H/lite-prev/VERSION")" = 1.0.1 ] \
   && ok "откат: lite 1.0.0" || { bad "откат"; cat "$W/last.log"; }
-run 2 && [ "$(cat "$H/lite/VERSION")" = 1.0.1 ] && [ "$(tree_hash "$H/My-Work")" = "$MW" ] \
+run 2 && [ "$(cat "$H/lite/VERSION")" = 1.0.1 ] && [ "$(mw_hash)" = "$MW" ] \
   && ok "повторный откат возвращает 1.0.1, My-Work цел" || { bad "повторный откат"; cat "$W/last.log"; }
 mkrel "$W/rstar" 1.0.6; (cd "$W/rstar" && sed 's/  brain-lite.zip/ *brain-lite.zip/' SHA256SUMS.txt > s && mv s SHA256SUMS.txt)
 run 0 "$W/rstar" && grep -q 'Новая версия: 1.0.6' "$W/last.log" && ok "сумма в формате со * принимается" || { bad "сумма со *"; cat "$W/last.log"; }
 mkrel "$W/rextra" 1.0.7; echo "0000000000000000000000000000000000000000000000000000000000000000  other-asset.txt" >> "$W/rextra/SHA256SUMS.txt"
 run 0 "$W/rextra" && grep -q 'Новая версия: 1.0.7' "$W/last.log" && ok "лишняя строка в SHA256SUMS не мешает" || { bad "лишняя строка в SHA256SUMS"; cat "$W/last.log"; }
+rm -rf "$H/_dl"
+
+echo "Проверка обновления"
+check() { run 3 "$1"; }
+check "$W/r101" && grep -q 'Обновлений нет, установлено 1.0.1' "$W/last.log" && [ -f "$H/My-Work/.lite-last-check" ] && ok "проверка: та же версия" || { bad "проверка: та же версия"; cat "$W/last.log"; }
+mkrel "$W/r120" 1.2.0
+check "$W/r120" && grep -q 'Есть обновление: 1.0.1 -> 1.2.0' "$W/last.log" && [ "$(cat "$H/lite/VERSION")" = 1.0.1 ] && ok "проверка: новая версия, ничего не поставлено" || { bad "проверка: новая"; cat "$W/last.log"; }
+check "$W/r100" && grep -q 'вы откатились' "$W/last.log" && ok "проверка: откатились с последней" || { bad "проверка: откат"; cat "$W/last.log"; }
+mkdir -p "$W/rmissing-check"; check "$W/rmissing-check" && grep -q 'не получилось' "$W/last.log" && ok "проверка без сети: вежливо, exit 0" || { bad "проверка без сети"; cat "$W/last.log"; }
+mkdir -p "$W/rjunk"; echo "<html>" > "$W/rjunk/VERSION"
+check "$W/rjunk" && grep -q 'не получилось' "$W/last.log" && ok "проверка: мусор вместо версии не выдаётся за версию" || { bad "проверка: мусор"; cat "$W/last.log"; }
+run 0 "$W/r101" >/dev/null && run 1 >/dev/null
+[ "$(grep -c 'AGENTS-CORE' "$H/My-Work/AGENTS.md")" = 2 ] && ok "повторное обновление не дублирует строку в памятке" || bad "строка в памятке задублирована"
 rm -rf "$H/_dl"
 
 echo "Красные сценарии (рецепт обязан остановиться)"
@@ -123,7 +142,7 @@ for junk in _swap _old; do
   if run 2; then bad "откат при застрявшем $junk не остановился"; else grep -q "$junk" "$W/last.log" && ok "откат при застрявшем $junk: стоп" || bad "откат $junk: не та причина"; fi
   rmdir "$H/$junk"; rm -rf "$H/_dl"
 done
-[ "$(cat "$H/lite/VERSION")" = 1.0.1 ] && [ "$(cat "$H/lite-prev/VERSION")" = 1.0.0 ] && ok "после всех стопов lite 1.0.1 и lite-prev 1.0.0 целы" || bad "стопы испортили lite"
+[ "$(cat "$H/lite/VERSION")" = 1.0.1 ] && [ "$(cat "$H/lite-prev/VERSION")" = 1.0.1 ] && ok "после всех стопов lite и lite-prev целы" || bad "стопы испортили lite"
 if run 0 "$W/r100" "" "$H/lite/.claude"; then bad "шаг 1 изнутри lite не остановился"; else grep -q 'открыт внутри lite' "$W/last.log" && ok "шаг 1 изнутри lite: стоп" || { bad "изнутри lite: не та причина"; cat "$W/last.log"; }; fi
 ln -s "$H/lite" "$W/via-link"
 if run 0 "$W/r100" "" "$W/via-link/.claude"; then bad "вход в lite через симлинк не остановлен"; else grep -q 'открыт внутри lite' "$W/last.log" && ok "вход в lite через симлинк: стоп" || { bad "симлинк-вход: не та причина"; cat "$W/last.log"; }; fi

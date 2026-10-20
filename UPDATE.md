@@ -14,8 +14,10 @@ Second-Brain-Lite/      в домашней папке владельца
   My-Work/     личные файлы владельца; рецепт их не читает и никуда не отправляет
 ```
 
-Источник один: релизы `https://github.com/tonydzi/brain-lite/releases`. В каждом релизе два файла:
-`brain-lite.zip` (13 текстовых файлов) и `SHA256SUMS.txt` (контрольная сумма архива).
+Источник один: релизы `https://github.com/tonydzi/brain-lite/releases`. В каждом релизе:
+`brain-lite.zip` (библиотека), `SHA256SUMS.txt` (контрольная сумма архива), `UPDATE.md` (этот рецепт)
+и `VERSION` (номер версии, для ежедневной проверки). Новые релизы выходят сами, когда мы улучшаем
+закон, скиллы или шаблоны; ставит их у себя только владелец, после своего «да».
 
 **Жёсткие правила для помощника:**
 
@@ -37,7 +39,8 @@ Second-Brain-Lite/      в домашней папке владельца
 поэтому рецепт и архив всегда одной версии.
 
 Нужна не последняя, а конкретная версия: в строке `BASE=` (или `$Base =`) замените
-`releases/latest/download` на `releases/download/v1.0.0` (нужный тег).
+`releases/latest/download` на `releases/download/v1.1.0` (нужный тег; закон, мозг и проверка
+обновлений есть начиная с v1.1.0).
 Папка установки не `~/Second-Brain-Lite`: поменяйте строку `ROOT=` (или `$Root =`)
 во всех блоках одинаково.
 
@@ -113,6 +116,11 @@ rm -rf _dl
 mkdir -p My-Work
 [ -e My-Work/AGENTS.md ] || cp lite/templates/My-Work-AGENTS.md My-Work/AGENTS.md
 [ -e My-Work/CLAUDE.md ] || printf '@AGENTS.md\n' > My-Work/CLAUDE.md
+if [ -f lite/AGENTS-CORE.md ] && ! grep -q 'AGENTS-CORE' My-Work/AGENTS.md; then
+  printf '\n<!-- brain-lite: AGENTS-CORE -->\nВ начале каждого чата прочитай ../lite/AGENTS-CORE.md и действуй по нему.\n' >> My-Work/AGENTS.md
+  echo "В памятку My-Work/AGENTS.md добавлена строка про ../lite/AGENTS-CORE.md"
+fi
+if [ -d lite/brain ] && [ ! -e My-Work/Brain ]; then cp -R lite/brain My-Work/Brain; echo "Второй мозг создан: My-Work/Brain"; fi
 echo "Готово: lite $(cat lite/VERSION)"
 if [ -d lite-prev ]; then echo "Для отката: lite-prev $(cat lite-prev/VERSION 2>/dev/null || echo неизвестна)"; fi
 ```
@@ -139,6 +147,26 @@ echo "Теперь lite $(cat lite/VERSION), в lite-prev $(cat lite-prev/VERSIO
 ```
 
 Откат обратим: повторный откат возвращает версию назад.
+
+### Проверка обновления (раз в день, ничего не меняет)
+
+```sh
+ROOT="$HOME/Second-Brain-Lite"
+URL="https://github.com/tonydzi/brain-lite/releases/latest/download/VERSION"
+CUR=$(cat "$ROOT/lite/VERSION" 2>/dev/null || echo нет)
+PREV=$(cat "$ROOT/lite-prev/VERSION" 2>/dev/null || echo нет)
+NEW=$(curl -fsSL --proto '=https' --proto-redir '=https' --max-time 20 "$URL" 2>/dev/null | head -n 1 || true)
+[ -d "$ROOT/My-Work" ] && date +%Y-%m-%d > "$ROOT/My-Work/.lite-last-check" 2>/dev/null || true
+case "$NEW" in
+  [0-9]*.[0-9]*.[0-9]*) ;;
+  *) echo "Проверить обновление не получилось (нет сети?). Установлено: $CUR"; exit 0 ;;
+esac
+if [ "$NEW" = "$CUR" ]; then echo "Обновлений нет, установлено $CUR"
+elif [ "$NEW" = "$PREV" ]; then echo "Последняя версия $NEW, вы откатились с неё на $CUR"
+else echo "Есть обновление: $CUR -> $NEW. Скажите «обнови лайт»"; fi
+```
+
+Помощник сообщает владельцу одну строку и ничего не скачивает и не меняет.
 
 ## Windows (PowerShell)
 
@@ -217,6 +245,11 @@ Remove-Item -Recurse -Force _dl
 New-Item -ItemType Directory -Force My-Work | Out-Null
 if (-not (Test-Path My-Work/AGENTS.md)) { Copy-Item lite/templates/My-Work-AGENTS.md My-Work/AGENTS.md }
 if (-not (Test-Path My-Work/CLAUDE.md)) { Set-Content -Path My-Work/CLAUDE.md -Value '@AGENTS.md' }
+if ((Test-Path lite/AGENTS-CORE.md) -and -not (Select-String -Path My-Work/AGENTS.md -Pattern 'AGENTS-CORE' -Quiet)) {
+  Add-Content -Path My-Work/AGENTS.md -Value "`n<!-- brain-lite: AGENTS-CORE -->`nAt the start of every chat read ../lite/AGENTS-CORE.md and follow it."
+  'Added a line about ../lite/AGENTS-CORE.md to My-Work/AGENTS.md'
+}
+if ((Test-Path lite/brain) -and -not (Test-Path My-Work/Brain)) { Copy-Item -Recurse lite/brain My-Work/Brain; 'Second brain created: My-Work/Brain' }
 "Done: lite $(Get-Content lite/VERSION)"
 if (Test-Path lite-prev) { "For rollback: lite-prev $(Get-Content lite-prev/VERSION -ErrorAction SilentlyContinue)" }
 ```
@@ -239,10 +272,28 @@ Move-Item _swap lite-prev
 "Now lite $(Get-Content lite/VERSION), lite-prev $(Get-Content lite-prev/VERSION)"
 ```
 
+### Проверка обновления (раз в день, ничего не меняет)
+
+```powershell
+$Root = Join-Path $HOME 'Second-Brain-Lite'
+$Url = 'https://github.com/tonydzi/brain-lite/releases/latest/download/VERSION'
+$Cur = (Get-Content (Join-Path $Root 'lite/VERSION') -ErrorAction SilentlyContinue | Select-Object -First 1); if (-not $Cur) { $Cur = 'none' }
+$Prev = (Get-Content (Join-Path $Root 'lite-prev/VERSION') -ErrorAction SilentlyContinue | Select-Object -First 1)
+$Curl = if ($IsWindows -or $env:OS -eq 'Windows_NT') { 'curl.exe' } else { 'curl' }
+$ErrorActionPreference = 'Continue'
+$New = (& $Curl -fsSL --proto '=https' --proto-redir '=https' --max-time 20 $Url 2>$null | Select-Object -First 1)
+if (Test-Path (Join-Path $Root 'My-Work')) { Set-Content -Path (Join-Path $Root 'My-Work/.lite-last-check') -Value (Get-Date -Format 'yyyy-MM-dd') }
+if ("$New" -notmatch '^\d+\.\d+\.\d+$') { "Could not check for updates (no network?). Installed: $Cur" }
+elseif ($New -eq $Cur) { "No updates, installed $Cur" }
+elseif ($New -eq $Prev) { "Latest is $New, you rolled back from it to $Cur" }
+else { "Update available: $Cur -> $New. Say: update lite" }
+```
+
 ## Проверка после установки или обновления
 
 1. `lite/VERSION` показывает ожидаемую версию.
-2. Помощник, открытый в `My-Work`, читает `../lite/RULES.md` и называет четыре приёма.
+2. Помощник, открытый в `My-Work`, читает `../lite/AGENTS-CORE.md` и называет приёмы из
+   `../lite/.claude/skills`.
 3. Квитанция владельцу: дата, было → стало, сумма сошлась, где лежит откат.
 
 ## Если не получилось

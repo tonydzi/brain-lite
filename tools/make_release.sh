@@ -2,7 +2,7 @@
 # make_release.sh: выпустить версию brain-lite одной командой.
 #
 # Вход:  tools/make_release.sh v1.0.0 [--dry-run]   (из любой папки внутри репо)
-# Выход: аннотированный тег, релиз на GitHub с brain-lite.zip, SHA256SUMS.txt и UPDATE.md; в --dry-run только файлы в dist/.
+# Выход: аннотированный тег, релиз на GitHub с brain-lite.zip, SHA256SUMS.txt, UPDATE.md и VERSION; в --dry-run только файлы в dist/.
 # Кто зовёт: Антон или его агент, после того как правка смержена в main и CI на ней зелёный.
 # Что ломается без него: друзья не получают обновление; ручная сборка забывает сумму или кладёт лишнее.
 # Порядок: страж и тесты локально -> main совпадает с origin/main -> CI на этом коммите зелёный ->
@@ -50,6 +50,7 @@ TZ=UTC git archive --format=zip -0 --prefix=lite/ -o dist/brain-lite.zip "$REF"
 if command -v shasum >/dev/null; then SUM="shasum -a 256"; else SUM="sha256sum"; fi
 (cd dist && $SUM brain-lite.zip > SHA256SUMS.txt && $SUM -c SHA256SUMS.txt)
 git show "$REF:UPDATE.md" > dist/UPDATE.md
+git show "$REF:VERSION" > dist/VERSION
 HASH="$(cut -d' ' -f1 dist/SHA256SUMS.txt)"
 echo "архив: $(unzip -Z1 dist/brain-lite.zip | grep -vc '/$') файлов, $(wc -c < dist/brain-lite.zip | tr -d ' ') байт, sha256 $HASH"
 
@@ -62,5 +63,5 @@ NOTES="$(awk '/^## /{n++} n==1' CHANGELOG.md)
 SHA256 brain-lite.zip: \`$HASH\`
 
 Обновиться: скажите своему помощнику «обнови лайт» (рецепт в UPDATE.md)."
-gh release create "$TAG" dist/brain-lite.zip dist/SHA256SUMS.txt dist/UPDATE.md --title "brain-lite $TAG" --notes "$NOTES" --latest
+gh release create "$TAG" dist/brain-lite.zip dist/SHA256SUMS.txt dist/UPDATE.md dist/VERSION --title "brain-lite $TAG" --notes "$NOTES" --latest
 echo "релиз $TAG опубликован"

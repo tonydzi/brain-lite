@@ -1,0 +1,160 @@
+name: autorelease
+
+# Our improvements reach friends without a human in the middle:
+# starter-kit (fed from our skill shelf) -> sync (cleaned on intake) -> candidate branch ->
+# full test matrix (Linux, macOS, Windows PowerShell 7 and 5.1) -> atomic push of main + tag -> release.
+# law/FLOOR.md is pinned by hash in lite_guard, so a change to the safety floor turns this red
+# until a human reads it. A friend's agent sees the new VERSION once a day; the owner applies it.
+on:
+  schedule:
+    - cron: '17 5,17 * * *'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: autorelease
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.need.outputs.release }}
+      new: ${{ steps.bump.outputs.new }}
+      sha: ${{ steps.cand.outputs.sha }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: repair a release lost after its tag was pushed
+        run: |
+          TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
+          if [ -n "$TAG" ] && ! gh release view "$TAG" >/dev/null 2>&1; then
+            echo "tag $TAG has no release, publishing it"
+            bash tools/publish_release.sh "$TAG"
+          fi
+      - name: pull improvements from starter-kit
+        run: python3 tools/sync_upstream.py
+      - name: commit the sync locally
+        run: |
+          git config user.name "brain-lite-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -q -m "sync: starter-kit $(grep -o '[0-9a-f]\{40\}' UPSTREAM.md | head -1 | cut -c1-12)"
+          fi
+      - name: is a release needed
+        id: need
+        run: |
+          set +e
+          python3 tools/release_needed.py check
+          rc=$?
+          set -e
+          case "$rc" in
+            0) echo "release=yes" >> "$GITHUB_OUTPUT" ;;
+            3) echo "release=no" >> "$GITHUB_OUTPUT" ;;
+            4) echo "release=manual" >> "$GITHUB_OUTPUT" ;;
+            *) exit 1 ;;
+          esac
+      - name: bump version
+        id: bump
+        if: steps.need.outputs.release == 'yes'
+        run: |
+          NEW=$(python3 tools/release_needed.py bump --date "$(date -u +%Y-%m-%d)")
+          git add VERSION CHANGELOG.md
+          git commit -q -m "release v$NEW (auto)"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+      - name: guard before spending the matrix
+        if: steps.need.outputs.release == 'yes'
+        run: python3 tools/lite_guard.py
+      - name: push candidate branch
+        id: cand
+        if: steps.need.outputs.release == 'yes'
+        run: |
+          git push -q --force origin HEAD:refs/heads/autorelease-candidate
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: push a sync that did not need a release
+        if: steps.need.outputs.release != 'yes'
+        run: git push --atomic origin HEAD:main
+
+  test-unix:
+    needs: prepare
+    if: needs.prepare.outputs.release == 'yes'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          fetch-depth: 0
+      - name: zsh
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zsh
+      - name: guard and tests
+        run: |
+          python3 tools/lite_guard.py
+          bash tests/test_guard.sh
+          bash tests/test_update.sh
+          bash tests/test_release.sh
+          bash tests/test_autorelease.sh
+
+  test-windows:
+    needs: prepare
+    if: needs.prepare.outputs.release == 'yes'
+    strategy:
+      matrix:
+        shell: [pwsh, powershell]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - name: UPDATE.md PowerShell recipe
+        run: ${{ matrix.shell }} -NoProfile -ExecutionPolicy Bypass -File tests/test_update.ps1
+
+  publish:
+    needs: [prepare, test-unix, test-windows]
+    if: needs.prepare.outputs.release == 'yes'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NEW: ${{ needs.prepare.outputs.new }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          fetch-depth: 0
+      - name: main must not have moved
+        run: |
+          git fetch -q origin main
+          git merge-base --is-ancestor origin/main HEAD || { echo "main moved during the run, next run will retry"; exit 1; }
+      - name: tag and push main + tag atomically
+        run: |
+          git config user.name "brain-lite-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$NEW" -m "brain-lite v$NEW (auto)"
+          python3 tools/lite_guard.py --tag "v$NEW"
+          git push --atomic origin HEAD:main "v$NEW"
+      - name: publish and verify by download
+        run: bash tools/publish_release.sh "v$NEW"
+      - name: rebuild from tag equals what friends download (latest)
+        run: |
+          set -euo pipefail
+          mkdir rb
+          curl -fsSL --proto '=https' -o rb/SHA256SUMS.txt "https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/SHA256SUMS.txt"
+          [ "$(curl -fsSL --proto '=https' "https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/VERSION")" = "$NEW" ]
+          A=$(TZ=UTC git archive --format=zip -0 --prefix=lite/ "v$NEW" | sha256sum | cut -d' ' -f1)
+          B=$(grep ' brain-lite.zip$' rb/SHA256SUMS.txt | cut -d' ' -f1)
+          echo "rebuilt=$A published=$B"
+          [ "$A" = "$B" ]
+      - name: drop candidate branch
+        if: always()
+        run: git push -q origin --delete autorelease-candidate || true
