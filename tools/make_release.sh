@@ -24,6 +24,7 @@ cd "$ROOT"
 python3 tools/lite_guard.py --tag "$TAG"
 bash tests/test_guard.sh >/dev/null || { echo "СТОП: tests/test_guard.sh красный"; exit 1; }
 bash tests/test_update.sh >/dev/null || { echo "СТОП: tests/test_update.sh красный"; exit 1; }
+bash tests/test_autorelease.sh >/dev/null || { echo "СТОП: tests/test_autorelease.sh красный"; exit 1; }
 echo "страж и тесты: зелёные"
 
 if [ "$DRY" != "--dry-run" ]; then
