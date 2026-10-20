@@ -21,6 +21,7 @@ a=$(build America/Los_Angeles "TZ=UTC "); b=$(build Asia/Tokyo "TZ=UTC "); c=$(b
 x=$(build America/Los_Angeles ""); y=$(build Asia/Tokyo "")
 [ "$x" != "$y" ] && ok "без TZ=UTC суммы разные: тест чувствителен" || bad "без TZ=UTC суммы совпали: тест ничего не доказывает"
 git clone -q "$ROOT" "$W/c"
+git -C "$W/c" tag -d "v$(cat "$W/c/VERSION")" >/dev/null 2>&1 || true  # пробный выпуск = как будто эта версия ещё не вышла
 if (cd "$W/c" && bash tools/make_release.sh "v$(cat VERSION)" --dry-run) >"$W/log" 2>&1; then
   n=$(unzip -Z1 "$W/c/dist/brain-lite.zip" | grep -vc '/$')
   want=$(git -C "$W/c" archive HEAD | tar -t | grep -vc '/$')
