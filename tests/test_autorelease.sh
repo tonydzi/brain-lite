@@ -78,7 +78,7 @@ $PY tools/release_needed.py check > "$W/log"; rc=$?
 [ "$rc" = 4 ] && ok "VERSION поднята вручную: автоматика пропускает ход (4)" || { bad "ручная версия: rc=$rc"; cat "$W/log"; }
 
 new_clone
-git tag -d "v$(cat VERSION)" >/dev/null; git checkout -q -b side HEAD~1 2>/dev/null; git -c user.name=t -c user.email=t@t commit -q --allow-empty -m side; git tag "v$(cat VERSION)"; git checkout -q -;
+V=$(cat VERSION); ORPHAN=$(git commit-tree "HEAD^{tree}" -m "side commit outside main"); git tag -f "v$V" "$ORPHAN" >/dev/null
 $PY tools/release_needed.py check > "$W/log"; rc=$?
 [ "$rc" = 2 ] && grep -q 'не в истории' "$W/log" && ok "тег не в истории main: не могу судить (2), красный" || { bad "тег вне истории: rc=$rc"; cat "$W/log"; }
 
