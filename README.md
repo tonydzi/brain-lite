@@ -14,7 +14,7 @@ about 30 text files, no scripts, no daemons, no sync, no data of ours. New relea
 automatically when the parent kit improves; the agent checks once a day and the owner applies. Updates come as a
 GitHub release zip with `SHA256SUMS.txt`; your agent verifies, shows the diff and swaps
 `lite/` with `lite-prev/` for rollback. Your own work lives in `My-Work/` and never leaves your machine.
-Guide is in Russian: [START.md](START.md), [UPDATE.md](UPDATE.md).
+Start in English: [START.en.md](START.en.md) (Russian: [START.md](START.md)). The update recipe [UPDATE.md](UPDATE.md) is bilingual in its STOP messages.
 
 ```
 Second-Brain-Lite/
