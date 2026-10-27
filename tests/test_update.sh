@@ -90,6 +90,11 @@ mkrel "$W/rstar" 1.0.6; (cd "$W/rstar" && sed 's/  brain-lite.zip/ *brain-lite.z
 run 0 "$W/rstar" && grep -q 'Новая версия: 1.0.6' "$W/last.log" && ok "сумма в формате со * принимается" || { bad "сумма со *"; cat "$W/last.log"; }
 mkrel "$W/rextra" 1.0.7; echo "0000000000000000000000000000000000000000000000000000000000000000  other-asset.txt" >> "$W/rextra/SHA256SUMS.txt"
 run 0 "$W/rextra" && grep -q 'Новая версия: 1.0.7' "$W/last.log" && ok "лишняя строка в SHA256SUMS не мешает" || { bad "лишняя строка в SHA256SUMS"; cat "$W/last.log"; }
+mkrel "$W/rloc" 1.0.8
+if (cd "$W" && rm -rf "$W/releases/latest/download" && mkdir -p "$W/releases/latest/download" && cp -R "$W/rloc"/. "$W/releases/latest/download/" \
+    && LC_ALL=C.UTF-8 LANG=C.UTF-8 HOME="$W/home" "$SUT" "$W/block0.sh") >"$W/last.log" 2>&1 && grep -q 'Новая версия: 1.0.8' "$W/last.log"; then
+  ok "окружение LC_ALL=C.UTF-8 (как у Codex): сумма сверяется, ложного стопа нет"
+else bad "LC_ALL=C.UTF-8 ломает сверку суммы"; cat "$W/last.log"; fi
 rm -rf "$H/_dl"
 
 echo "Проверка обновления"
@@ -151,7 +156,7 @@ if (cd "$W" && HOME="$H2" "$SUT" "$W/block2.sh") >"$W/last.log" 2>&1; then bad "
 
 echo "Проверка самого теста: рецепт без сверки суммы обязан пропустить подмену"
 mkdir -p "$W/mut"; cp "$W"/block*.sh "$W/mut/"
-sed -E 's/^  (shasum|sha256sum) .*$/  true/' "$W/block0.sh" > "$W/mut/block0.sh"
+sed -E 's/^  (LC_ALL=C )?(shasum|sha256sum) .*$/  true/' "$W/block0.sh" > "$W/mut/block0.sh"
 if run 0 "$W/rswap" "$W/mut"; then ok "мутант без сверки суммы пропускает подмену: тест чувствителен"
 else bad "мутант тоже остановился: тест не доказывает, что ловит именно сумма"; cat "$W/last.log"; fi
 if run 0 "$W/rswap"; then bad "настоящий рецепт пропустил ту же подмену"; else ok "настоящий рецепт ловит ту же подмену"; fi

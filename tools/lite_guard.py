@@ -62,7 +62,8 @@ POLICY_PATTERNS = [
     (r"(?i)ignore (all|previous|the) (instructions|rules)|игнорируй (правила|floor|закон|инструкции)", "попытка отменить правила"),
 ]
 REQUIRED_IN_UPDATE = [
-    "shasum -a 256 -c zip.sha256 || ",
+    "LC_ALL=C shasum -a 256 -c zip.sha256 || ",
+    'find "$1" -delete; }',
     "sha256sum -c zip.sha256 || ",
     "pwd -P",
     "ReparsePoint",
@@ -167,6 +168,9 @@ def main():
         if must not in update:
             problems.append(f"UPDATE.md: нет обязательной проверки «{must}»")
 
+    for i, block in enumerate(re.findall(r"```sh\n(.*?)```", update, re.S)):
+        if re.search(r"(^|[\s;&|(])rm\s+-[a-zA-Z]*[rf]", block, re.M):
+            problems.append(f"UPDATE.md: sh-блок {i} с rm -rf/-f (песочница Codex отвергает рецепт целиком)")
     for i, block in enumerate(re.findall(r"```powershell\n(.*?)```", update, re.S)):
         if re.search(r"[^\x00-\x7F]", block):
             problems.append(f"UPDATE.md: powershell-блок {i} не только ASCII (сломается в Windows PowerShell 5.1)")
