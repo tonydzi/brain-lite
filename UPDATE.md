@@ -52,6 +52,7 @@ Second-Brain-Lite/      в домашней папке владельца
 
 ```sh
 set -eu
+purge() { case "$1" in ""|/*|*..*) echo "СТОП: не удаляю $1"; exit 1 ;; esac; [ ! -e "$1" ] || find "$1" -delete; }
 ROOT="$HOME/Second-Brain-Lite"
 BASE="https://github.com/tonydzi/brain-lite/releases/latest/download"
 case "$BASE" in https://github.com/tonydzi/brain-lite/releases/*) ;; *) echo "СТОП: чужой источник $BASE"; exit 1 ;; esac
@@ -63,14 +64,14 @@ echo "Источник: $BASE"
 mkdir -p "$ROOT"
 cd "$ROOT"
 [ -d lite ] || echo "Папки lite ещё нет: это первая установка"
-rm -rf _dl
+purge _dl
 mkdir _dl
 cd _dl
 curl -fsSL --proto '=https' --proto-redir '=https' -o SHA256SUMS.txt "$BASE/SHA256SUMS.txt"
 curl -fsSL --proto '=https' --proto-redir '=https' -o brain-lite.zip "$BASE/brain-lite.zip"
 grep -E '[ *]brain-lite[.]zip$' SHA256SUMS.txt > zip.sha256 || { echo "СТОП: в SHA256SUMS.txt нет строки архива"; exit 1; }
 if command -v shasum >/dev/null 2>&1; then
-  shasum -a 256 -c zip.sha256 || { echo "СТОП: контрольная сумма не совпала"; exit 1; }
+  LC_ALL=C shasum -a 256 -c zip.sha256 || { echo "СТОП: контрольная сумма не совпала"; exit 1; }
 else
   sha256sum -c zip.sha256 || { echo "СТОП: контрольная сумма не совпала"; exit 1; }
 fi
@@ -81,9 +82,9 @@ SLIP=$(printf '%s\n' "$LIST" | grep -E '(^|/)[.][.](/|$)' || true)
 TYPES=$(unzip -Z brain-lite.zip) || { echo "СТОП: не могу прочитать список архива"; exit 1; }
 if printf '%s\n' "$TYPES" | grep -q '^l'; then echo "СТОП: в архиве ссылки на чужие файлы"; exit 1; fi
 unzip -q brain-lite.zip -d new
-if [ -n "$(find new -type l)" ]; then rm -rf new; echo "СТОП: в архиве ссылки на чужие файлы"; exit 1; fi
+if [ -n "$(find new -type l)" ]; then purge new; echo "СТОП: в архиве ссылки на чужие файлы"; exit 1; fi
 for f in VERSION RULES.md UPDATE.md CHANGELOG.md templates/My-Work-AGENTS.md; do
-  [ -f "new/lite/$f" ] || { rm -rf new; echo "СТОП: в архиве нет lite/$f"; exit 1; }
+  [ -f "new/lite/$f" ] || { purge new; echo "СТОП: в архиве нет lite/$f"; exit 1; }
 done
 echo "Новая версия: $(cat new/lite/VERSION)"
 if [ -d ../lite ]; then
@@ -101,6 +102,7 @@ head -n 20 new/lite/CHANGELOG.md
 
 ```sh
 set -eu
+purge() { case "$1" in ""|/*|*..*) echo "СТОП: не удаляю $1"; exit 1 ;; esac; [ ! -e "$1" ] || find "$1" -delete; }
 ROOT="$HOME/Second-Brain-Lite"
 HERE=$(pwd -P)
 ROOTP=$( (cd "$ROOT" 2>/dev/null && pwd -P) || echo "$ROOT" )
@@ -111,8 +113,8 @@ cd "$ROOT"
 [ -f _dl/new/lite/VERSION ] || { echo "СТОП: сначала шаг 1"; exit 1; }
 if [ -d lite ]; then mv lite _old; fi
 mv _dl/new/lite lite
-if [ -d _old ]; then rm -rf lite-prev; mv _old lite-prev; fi
-rm -rf _dl
+if [ -d _old ]; then purge lite-prev; mv _old lite-prev; fi
+purge _dl
 mkdir -p My-Work
 [ -e My-Work/AGENTS.md ] || cp lite/templates/My-Work-AGENTS.md My-Work/AGENTS.md
 [ -e My-Work/CLAUDE.md ] || printf '@AGENTS.md\n' > My-Work/CLAUDE.md

@@ -22,6 +22,8 @@ case_ 1 "приватный ключ" "printf -- '-----BEGIN OPENSSH PRIVATE KEY
 case_ 1 "личный путь Антона" "echo 'см. /Users/anton/secret' >> README.md"
 case_ 1 "битая ссылка" "echo '[x](NOPE.md)' >> README.md"
 case_ 1 "из UPDATE.md вырезана сверка суммы" "grep -v 'shasum -a 256 -c zip.sha256' UPDATE.md > u && mv u UPDATE.md"
+case_ 1 "rm -rf вернулся в sh-блок рецепта" "sed -i.bak 's/^purge _dl$/rm -rf _dl/' UPDATE.md && rm UPDATE.md.bak"
+case_ 1 "у shasum снят LC_ALL=C" "sed -i.bak 's/  LC_ALL=C shasum/  shasum/' UPDATE.md && rm UPDATE.md.bak"
 case_ 1 "из PowerShell вырезано сравнение суммы" "grep -v 'expected -ne' UPDATE.md > u && mv u UPDATE.md"
 case_ 1 "кириллица в PowerShell-блоке" "sed -i.bak 's/No lite folder yet: first install/Первая установка/' UPDATE.md && rm UPDATE.md.bak"
 case_ 1 "снято ограничение https" "sed -i.bak \"s/--proto '=https' --proto-redir '=https' //\" UPDATE.md && rm UPDATE.md.bak"
