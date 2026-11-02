@@ -62,6 +62,7 @@ POLICY_PATTERNS = [
     (r"(?i)ignore (all|previous|the) (instructions|rules)|игнорируй (правила|floor|закон|инструкции)", "попытка отменить правила"),
 ]
 REQUIRED_IN_UPDATE = [
+    "My-Work/.claude/settings.json",
     "ШАГ 1 ЗАКОНЧЕН, ничего не заменено",
     "STEP 1 DONE, nothing replaced",
     "это «да» не заменяет",

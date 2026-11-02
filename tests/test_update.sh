@@ -68,6 +68,7 @@ mkrel "$W/r100" 1.0.0
 mkrel "$W/r101" 1.0.1
 run 0 "$W/r100" && run 1 && [ "$(cat "$H/lite/VERSION")" = 1.0.0 ] && [ ! -d "$H/lite-prev" ] \
   && [ -f "$H/My-Work/AGENTS.md" ] && grep -qx '@AGENTS.md' "$H/My-Work/CLAUDE.md" \
+  && python3 -c "import json,sys; assert json.load(open(sys.argv[1]))['permissions']['additionalDirectories']==['../lite']" "$H/My-Work/.claude/settings.json" \
   && [ -f "$H/lite/.claude/skills/lite-check/SKILL.md" ] && [ ! -e "$H/_dl" ] \
   && [ "$(find "$H/My-Work/Brain" -name README.md | wc -l | tr -d ' ')" = 12 ] && [ -f "$H/lite/law/FLOOR.md" ] \
   && ok "установка с нуля: lite 1.0.0, закон, My-Work с памяткой и мозгом (11 слоёв)" || { bad "установка с нуля"; cat "$W/last.log"; }

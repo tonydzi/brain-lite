@@ -27,7 +27,8 @@ Second-Brain-Lite/      в домашней папке владельца
   `CHANGELOG.md`) и дождаться его «да».
   Просьба «обнови лайт» или «установи лайт» это «да» не заменяет: шаг 1 и шаг 2 всегда
   в разных ответах, между ними отдельное «да» владельца.
-- `My-Work` не читать, не менять и не удалять. Создать её можно, только если её нет.
+- `My-Work` не читать, не менять и не удалять. Создать её можно, только если её нет. Шаг 2 добавляет
+  туда только недостающие служебные файлы: памятку и настройку, которая разрешает Claude Code читать `../lite`.
 - Никаких других программ, служб, расписаний и синхронизации этот рецепт не ставит.
 - Помощника не держать открытым внутри `lite` или `lite-prev`: на Windows такую папку
   нельзя переименовать. Работать из `My-Work` или из `Second-Brain-Lite`.
@@ -121,6 +122,8 @@ purge _dl
 mkdir -p My-Work
 [ -e My-Work/AGENTS.md ] || cp lite/templates/My-Work-AGENTS.md My-Work/AGENTS.md
 [ -e My-Work/CLAUDE.md ] || printf '@AGENTS.md\n' > My-Work/CLAUDE.md
+mkdir -p My-Work/.claude
+[ -e My-Work/.claude/settings.json ] || printf '{\n  "permissions": {\n    "additionalDirectories": ["../lite"]\n  }\n}\n' > My-Work/.claude/settings.json
 if [ -f lite/AGENTS-CORE.md ] && ! grep -q 'AGENTS-CORE' My-Work/AGENTS.md; then
   printf '\n<!-- brain-lite: AGENTS-CORE -->\nВ начале каждого чата прочитай ../lite/AGENTS-CORE.md и действуй по нему.\n' >> My-Work/AGENTS.md
   echo "В памятку My-Work/AGENTS.md добавлена строка про ../lite/AGENTS-CORE.md"
@@ -251,6 +254,8 @@ Remove-Item -Recurse -Force _dl
 New-Item -ItemType Directory -Force My-Work | Out-Null
 if (-not (Test-Path My-Work/AGENTS.md)) { Copy-Item lite/templates/My-Work-AGENTS.md My-Work/AGENTS.md }
 if (-not (Test-Path My-Work/CLAUDE.md)) { Set-Content -Path My-Work/CLAUDE.md -Value '@AGENTS.md' }
+New-Item -ItemType Directory -Force -Path My-Work/.claude | Out-Null
+if (-not (Test-Path My-Work/.claude/settings.json)) { Set-Content -Path My-Work/.claude/settings.json -Value '{ "permissions": { "additionalDirectories": ["../lite"] } }' -Encoding ascii }
 if ((Test-Path lite/AGENTS-CORE.md) -and -not (Select-String -Path My-Work/AGENTS.md -Pattern 'AGENTS-CORE' -Quiet)) {
   Add-Content -Path My-Work/AGENTS.md -Value "`n<!-- brain-lite: AGENTS-CORE -->`nAt the start of every chat read ../lite/AGENTS-CORE.md and follow it."
   'Added a line about ../lite/AGENTS-CORE.md to My-Work/AGENTS.md'

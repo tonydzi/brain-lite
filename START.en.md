@@ -51,6 +51,7 @@ sharing data and new access each need my separate direct request. Answer me in E
 
 From then on, open the assistant in **`~/Second-Brain-Lite/My-Work`**: its `AGENTS.md` points it
 to the rules in `lite`. Do not open the assistant inside `lite`: updates replace that folder.
+Claude Code asks on the first open whether you trust this folder: answer yes, or it will not see the library.
 
 ## 3. Check the result
 
