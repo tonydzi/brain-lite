@@ -1,5 +1,9 @@
 # Изменения
 
+## 1.1.5 (2026-11-02)
+
+- Изменено в brain-lite: `START.en.md`, `START.md`, `UPDATE.md`.
+
 ## 1.1.4 (2026-11-02)
 
 - Изменено в brain-lite: `RULES.md`, `UPDATE.md`.
