@@ -78,6 +78,7 @@ try {
   New-Release (Join-Path $W 'r100') '1.0.0'; New-Release (Join-Path $W 'r101') '1.0.1'
   if ((Run 0 "$W/r100") -and (Run 1 $null) -and ((Ver lite) -eq '1.0.0') -and (Test-Path "$H/My-Work/AGENTS.md") -and (Test-Path "$H/lite/.claude/skills/lite-check/SKILL.md") -and -not (Test-Path "$H/_dl") -and (@(Get-ChildItem "$H/My-Work/Brain" -Recurse -Filter README.md).Count -eq 12) -and (Test-Path "$H/lite/law/FLOOR.md")) { Ok 'fresh install with law and 11-layer brain' } else { Bad 'fresh install'; LogText }
   if ((Get-Content "$H/My-Work/AGENTS.md" -Raw) -match 'AGENTS-CORE') { Ok 'fresh memo points to AGENTS-CORE' } else { Bad 'fresh memo lacks AGENTS-CORE' }
+  if ((Get-Content "$H/My-Work/.claude/settings.json" -Raw | ConvertFrom-Json).permissions.additionalDirectories -contains '../lite') { Ok 'Claude Code may read ../lite' } else { Bad 'no settings for ../lite' }
   [IO.File]::WriteAllText("$H/My-Work/AGENTS.md", "old style memo`n")
   [IO.File]::WriteAllText("$H/My-Work/mine.txt", 'mine')
   [IO.File]::WriteAllText("$H/My-Work/Brain/03-Insights/2026-10-19-lesson.md", 'my note')
