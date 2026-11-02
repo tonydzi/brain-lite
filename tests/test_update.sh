@@ -75,7 +75,7 @@ grep -q 'AGENTS-CORE' "$H/My-Work/AGENTS.md" && ok "свежая памятка 
 echo "моё" > "$H/My-Work/mine.txt"; echo "свой AGENTS старого образца" > "$H/My-Work/AGENTS.md"
 echo "моя заметка" > "$H/My-Work/Brain/03-Insights/2026-10-19-урок.md"; echo "правка" >> "$H/My-Work/Brain/README.md"
 MW="$(mw_hash)"
-run 0 "$W/r101" && grep -q 'Новая версия: 1.0.1' "$W/last.log" && grep -q 'Текущая версия: 1.0.0' "$W/last.log" \
+run 0 "$W/r101" && grep -q 'Новая версия: 1.0.1' "$W/last.log" && grep -q 'ШАГ 1 ЗАКОНЧЕН' "$W/last.log" && grep -q 'Текущая версия: 1.0.0' "$W/last.log" \
   && grep -q 'VERSION differ' "$W/last.log" && grep -q 'Источник: file://' "$W/last.log" && [ "$(cat "$H/lite/VERSION")" = 1.0.0 ] \
   && ok "шаг 1 обновления показывает источник, версии и diff, ничего не меняет" || { bad "шаг 1 обновления"; cat "$W/last.log"; }
 run 1 && [ "$(cat "$H/lite/VERSION")" = 1.0.1 ] && [ "$(cat "$H/lite-prev/VERSION")" = 1.0.0 ] \

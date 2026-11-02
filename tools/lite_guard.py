@@ -62,6 +62,9 @@ POLICY_PATTERNS = [
     (r"(?i)ignore (all|previous|the) (instructions|rules)|игнорируй (правила|floor|закон|инструкции)", "попытка отменить правила"),
 ]
 REQUIRED_IN_UPDATE = [
+    "ШАГ 1 ЗАКОНЧЕН, ничего не заменено",
+    "STEP 1 DONE, nothing replaced",
+    "это «да» не заменяет",
     "LC_ALL=C shasum -a 256 -c zip.sha256 || ",
     'find "$1" -delete; }',
     "sha256sum -c zip.sha256 || ",
