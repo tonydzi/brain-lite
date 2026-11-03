@@ -136,6 +136,13 @@ try {
   if ((Run 1 $null) -and ((Ver lite) -eq '1.0.1') -and ((Ver lite-prev) -eq '1.0.2') -and -not (Test-Path "$H/_old") -and ((LogText) -match 'Resuming an interrupted update')) { Ok 'update interrupted after lite -> _old: step 2 resumes, nothing lost' } else { Bad 'resume after _old'; LogText }
   Run 0 "$W/r102" | Out-Null; $l = TreeHash "$H/lite"; Add-Content "$H/_staging/install.ps1" '# extra line'
   if (Run 1 $null) { Bad 'installer changed between steps, step 2 went on' } elseif (((LogText) -match 'installer changed after step 1') -and ((TreeHash "$H/lite") -eq $l)) { Ok 'installer changed between steps: stop, lite intact' } else { Bad 'installer swap: wrong reason'; LogText }
+  Run 0 "$W/r102" | Out-Null; Add-Content "$H/_staging/new/lite/AGENTS-CORE.md" 'tampered line'
+  if ((Run 1 $null) -and ((Ver lite) -eq '1.0.2') -and ((Sha "$H/lite/AGENTS-CORE.md") -eq (Sha "$W/src-1.0.2/lite/AGENTS-CORE.md"))) { Ok 'display unpack tampered between steps: step 2 installs a fresh unpack of the verified archive' } else { Bad 'tampered unpack reached lite'; LogText }
+  Run 2 $null | Out-Null; $l = TreeHash "$H/lite"
+  Move-Item "$H/My-Work/Brain" "$W/brain-away"; New-Item -ItemType Directory -Force "$H/My-Work/.brain-copy/00-Inbox" | Out-Null
+  if ((Run 0 "$W/r102") -and (Run 1 $null) -and (@(Get-ChildItem "$H/My-Work/Brain" -Recurse -Filter README.md).Count -eq 12) -and -not (Test-Path "$H/My-Work/.brain-copy") -and @(Get-ChildItem "$H/_archive" -Directory -Filter 'brain-partial-*').Count) { Ok 'cut brain copy is not taken for a finished one: archived, brain copied whole' } else { Bad 'cut brain copy'; LogText }
+  Move-Item "$H/My-Work/Brain" "$W/brain-fresh"; Move-Item "$W/brain-away" "$H/My-Work/Brain"; Run 2 $null | Out-Null
+  if ((TreeHash "$H/lite") -ne $l) { Bad 'setup for the next cases: lite did not come back' }
   Run 0 "$W/r102" | Out-Null; [IO.File]::AppendAllText("$H/_staging/brain-lite.zip", 'x')
   if (Run 1 $null) { Bad 'archive changed between steps, step 2 went on' } elseif (((LogText) -match 'archive changed after step 1') -and ((TreeHash "$H/lite") -eq $l)) { Ok 'archive changed between steps: stop, lite intact' } else { Bad 'archive swap: wrong reason'; LogText }
 

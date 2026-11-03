@@ -83,7 +83,7 @@ REQUIRED_IN_INSTALLER = {
         "LC_ALL=C shasum -a 256",
         "grep -vE '^lite/'",
         "grep -q '^l'",
-        'find "$ST/unpack" -type l',
+        'find "$1" -type l',
         "My-Work/.claude/settings.json",
         "ШАГ 1 ЗАКОНЧЕН, ничего не заменено",
         "архив изменился после шага 1",

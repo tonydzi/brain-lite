@@ -4,13 +4,15 @@
 # Вход:  sh install.sh prepare [started_at]   из папки Second-Brain-Lite, после того как блок «Шаг 1» из UPDATE.md
 #        скачал в _staging/ файлы brain-lite.zip, SHA256SUMS.txt, VERSION и этот файл и сверил его сумму.
 #        sh install.sh apply                  после отдельного «да» владельца (блок «Шаг 2»).
-# Выход: prepare: проверенная распаковка в _staging/new/lite, _staging/STATE, вывод для владельца; ничего не заменяет.
-#        apply:   lite = новая версия, lite-prev = прошлая, недостающие служебные файлы в My-Work.
+# Выход: prepare: проверенная распаковка в _staging/new/lite для показа, _staging/STATE, вывод для владельца;
+#        ничего не заменяет.
+#        apply:   снова сверяет архив с суммой из STATE, распаковывает его заново и проверяет, и только эту свежую
+#        распаковку ставит в lite; прошлая версия = lite-prev; недостающие служебные файлы в My-Work.
 #        Строки событий с реальным временем UTC пишутся в lite-install.log (для квитанции lite-check).
 # Кто зовёт: помощник владельца по UPDATE.md. Человеку ничего печатать не нужно.
 # Что ломается без него: помощник переписывал бы длинные блоки руками и обрезал шаги.
 # Правила: сети нет (всё скачано до запуска); ничего не удаляет: старое переносится в _archive/;
-# My-Work не читает и не меняет, только создаёт недостающие служебные файлы; любой СТОП оставляет lite как было.
+# My-Work не меняет, только создаёт недостающие служебные файлы; любой СТОП оставляет lite как было.
 # рельса: POSIX sh + unzip + shasum/sha256sum, без LLM.
 set -eu
 
@@ -41,28 +43,31 @@ archive_note() {
   n=$(find "$ROOT/_archive" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')
   echo "В _archive папок: $n. Рецепт ничего не удаляет; лишнее владелец может удалить сам."
 }
-
-prepare() {
-  started="${1:-$(now)}"
-  [ -f "$ST/brain-lite.zip" ] && [ -f "$ST/SHA256SUMS.txt" ] && [ -f "$ST/VERSION" ] || stop "в _staging нет скачанного релиза, сначала блок «Шаг 1»"
-  ver=$(head -n 1 "$ST/VERSION")
-  case "$ver" in [0-9]*.[0-9]*.[0-9]*) ;; *) stop "VERSION релиза не похож на версию: $ver" ;; esac
-  for junk in "$ST/new" "$ST/unpack" "$ST/STATE"; do stash "$junk" "staging-$(basename "$junk")"; done
-  expected=$(sum_of 'brain-lite[.]zip')
-  [ -n "$expected" ] || stop "в SHA256SUMS.txt нет строки архива"
-  [ "$(sha "$ST/brain-lite.zip")" = "$expected" ] || stop "контрольная сумма не совпала"
+unpack_checked() { # unpack_checked <папка> <версия>: проверить пути архива, распаковать, проверить дерево
   LIST=$(unzip -Z1 "$ST/brain-lite.zip") || stop "не могу прочитать список архива"
   BAD=$(printf '%s\n' "$LIST" | grep -vE '^lite/' || true)
   SLIP=$(printf '%s\n' "$LIST" | grep -E '(^|/)[.][.](/|$)' || true)
   [ -z "$BAD$SLIP" ] || { echo "СТОП: подозрительные пути в архиве:"; echo "$BAD$SLIP"; exit 1; }
   TYPES=$(unzip -Z "$ST/brain-lite.zip") || stop "не могу прочитать список архива"
   if printf '%s\n' "$TYPES" | grep -q '^l'; then stop "в архиве ссылки на чужие файлы"; fi
-  unzip -q "$ST/brain-lite.zip" -d "$ST/unpack"
-  [ -z "$(find "$ST/unpack" -type l)" ] || stop "в архиве ссылки на чужие файлы"
+  unzip -q "$ST/brain-lite.zip" -d "$1"
+  [ -z "$(find "$1" -type l)" ] || stop "в архиве ссылки на чужие файлы"
   for f in VERSION RULES.md UPDATE.md CHANGELOG.md templates/My-Work-AGENTS.md; do
-    [ -f "$ST/unpack/lite/$f" ] || stop "в архиве нет lite/$f"
+    [ -f "$1/lite/$f" ] || stop "в архиве нет lite/$f"
   done
-  [ "$(head -n 1 "$ST/unpack/lite/VERSION")" = "$ver" ] || stop "версия в архиве $(head -n 1 "$ST/unpack/lite/VERSION") не равна версии релиза $ver"
+  [ "$(head -n 1 "$1/lite/VERSION")" = "$2" ] || stop "версия в архиве $(head -n 1 "$1/lite/VERSION") не равна версии релиза $2"
+}
+
+prepare() {
+  started="${1:-$(now)}"
+  [ -f "$ST/brain-lite.zip" ] && [ -f "$ST/SHA256SUMS.txt" ] && [ -f "$ST/VERSION" ] || stop "в _staging нет скачанного релиза, сначала блок «Шаг 1»"
+  ver=$(head -n 1 "$ST/VERSION")
+  case "$ver" in [0-9]*.[0-9]*.[0-9]*) ;; *) stop "VERSION релиза не похож на версию: $ver" ;; esac
+  for junk in "$ST/new" "$ST/unpack" "$ST/fresh" "$ST/STATE"; do stash "$junk" "staging-$(basename "$junk")"; done
+  expected=$(sum_of 'brain-lite[.]zip')
+  [ -n "$expected" ] || stop "в SHA256SUMS.txt нет строки архива"
+  [ "$(sha "$ST/brain-lite.zip")" = "$expected" ] || stop "контрольная сумма не совпала"
+  unpack_checked "$ST/unpack" "$ver"
   mv "$ST/unpack" "$ST/new"
   id="$(stamp)-$$"
   {
@@ -72,7 +77,7 @@ prepare() {
     echo "started_at=$started"
     echo "archive_verified_at=$(now)"
   } > "$ST/STATE"
-  event started "id=$id at=$started"
+  event started "id=$id version=$ver at=$started"
   event archive_verified "id=$id version=$ver zip_sha256=$expected"
   echo "Новая версия: $ver"
   echo "Сумма архива: $expected"
@@ -96,11 +101,18 @@ mywork() {
   [ -e My-Work/CLAUDE.md ] || printf '@AGENTS.md\n' > My-Work/CLAUDE.md
   mkdir -p My-Work/.claude
   [ -e My-Work/.claude/settings.json ] || printf '{\n  "permissions": {\n    "additionalDirectories": ["../lite"]\n  }\n}\n' > My-Work/.claude/settings.json
+  # Миграция установок до 1.1.0 (было и в 1.1.x): старой памятке один раз дописывается ссылка на AGENTS-CORE.
   if [ -f lite/AGENTS-CORE.md ] && ! grep -q 'AGENTS-CORE' My-Work/AGENTS.md; then
     printf '\n<!-- brain-lite: AGENTS-CORE -->\nВ начале каждого чата прочитай ../lite/AGENTS-CORE.md и действуй по нему.\n' >> My-Work/AGENTS.md
     echo "В памятку My-Work/AGENTS.md добавлена строка про ../lite/AGENTS-CORE.md"
   fi
-  if [ -d lite/brain ] && [ ! -e My-Work/Brain ]; then cp -R lite/brain My-Work/Brain; echo "Второй мозг создан: My-Work/Brain"; fi
+  # Мозг копируется во временную папку и появляется под своим именем только целым: прерванная копия не выдаётся за готовую.
+  if [ -d lite/brain ] && [ ! -e My-Work/Brain ]; then
+    stash My-Work/.brain-copy brain-partial
+    cp -R lite/brain My-Work/.brain-copy
+    mv My-Work/.brain-copy My-Work/Brain
+    echo "Второй мозг создан: My-Work/Brain"
+  fi
 }
 
 apply() {
@@ -110,25 +122,26 @@ apply() {
   ver=$(state version); id=$(state install_id); expected=$(state zip_sha256)
   [ -n "$ver" ] && [ -n "$expected" ] || stop "_staging/STATE неполный, повторите шаг 1"
   [ "$(sha "$ST/brain-lite.zip")" = "$expected" ] || stop "архив изменился после шага 1, повторите шаг 1"
+  place=yes
   if [ -e _old ]; then
     # Прерванная замена: продолжаем, только если состояние однозначно.
-    if [ ! -e lite ] && [ -f "$ST/new/lite/VERSION" ]; then
+    if [ ! -e lite ]; then
       echo "Продолжаю прерванную замену: _old на месте, lite ещё нет"
-    elif [ -f lite/VERSION ] && [ "$(head -n 1 lite/VERSION)" = "$ver" ] && [ ! -e "$ST/new/lite" ]; then
+    elif [ -f lite/VERSION ] && [ "$(head -n 1 lite/VERSION)" = "$ver" ]; then
       echo "Продолжаю прерванную замену: lite $ver уже стоит, _old ещё не перенесена"
+      place=no
     else
       stop "осталась _old от прерванной замены (lite: $(cat lite/VERSION 2>/dev/null || echo нет), _old: $(cat _old/VERSION 2>/dev/null || echo нет)), см. «Если не получилось»"
     fi
-  elif [ -f "$ST/new/lite/VERSION" ]; then
-    [ "$(head -n 1 "$ST/new/lite/VERSION")" = "$ver" ] || stop "распакованная версия не равна проверенной $ver, повторите шаг 1"
+  fi
+  if [ "$place" = yes ]; then
+    # Ставим не показанную в шаге 1 распаковку, а свежую из того же проверенного архива.
+    stash "$ST/fresh" staging-fresh
+    unpack_checked "$ST/fresh" "$ver"
     event consent_given "id=$id"
     if [ -d lite ]; then mv lite _old; fi
-  elif [ -f lite/VERSION ] && [ "$(head -n 1 lite/VERSION)" = "$ver" ]; then
-    echo "lite $ver уже стоит: замена не нужна"
-  else
-    stop "сначала шаг 1"
+    mv "$ST/fresh/lite" lite
   fi
-  [ -e lite ] || mv "$ST/new/lite" lite
   if [ -d _old ]; then stash lite-prev lite-prev; mv _old lite-prev; fi
   mywork
   stash "$ST" staging

@@ -87,7 +87,7 @@ The first run is verified when you can show:
 
 - one real task and a useful result;
 - a check of the result against what you gave the assistant;
-- the result file in `My-Work/Brain` (or the result in chat if file access is limited);
+- the result file in `My-Work/Brain` (a result only in chat counts as a trial, not a verified run);
 - a new chat found that result by itself from a question, without a hint or a note;
 - a `lite-check` receipt with its fields and times, no secrets and no task content.
 
