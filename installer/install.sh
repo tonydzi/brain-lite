@@ -122,27 +122,34 @@ apply() {
   ver=$(state version); id=$(state install_id); expected=$(state zip_sha256)
   [ -n "$ver" ] && [ -n "$expected" ] || stop "_staging/STATE неполный, повторите шаг 1"
   [ "$(sha "$ST/brain-lite.zip")" = "$expected" ] || stop "архив изменился после шага 1, повторите шаг 1"
+  # Ставим и сверяем только свежую распаковку того же проверенного архива, не показанную в шаге 1.
+  stash "$ST/fresh" staging-fresh
+  unpack_checked "$ST/fresh" "$ver"
   place=yes
   if [ -e _old ]; then
     # Прерванная замена: продолжаем, только если состояние однозначно.
     if [ ! -e lite ]; then
       echo "Продолжаю прерванную замену: _old на месте, lite ещё нет"
     elif [ -f lite/VERSION ] && [ "$(head -n 1 lite/VERSION)" = "$ver" ]; then
-      echo "Продолжаю прерванную замену: lite $ver уже стоит, _old ещё не перенесена"
+      diff -rq lite "$ST/fresh/lite" >/dev/null || stop "lite $ver не совпадает с проверенным архивом, а _old ещё на месте: покажите владельцу VERSION папок, см. «Если не получилось»"
+      echo "Продолжаю прерванную замену: lite $ver уже стоит и совпадает с архивом, _old ещё не перенесена"
       place=no
     else
       stop "осталась _old от прерванной замены (lite: $(cat lite/VERSION 2>/dev/null || echo нет), _old: $(cat _old/VERSION 2>/dev/null || echo нет)), см. «Если не получилось»"
     fi
+  elif [ "$(state swapped)" = yes ] && [ -f lite/VERSION ] && [ "$(head -n 1 lite/VERSION)" = "$ver" ]; then
+    # Замена уже прошла в этом же apply, прервалось позже: lite-prev не трогаем, иначе пропадёт точка отката.
+    diff -rq lite "$ST/fresh/lite" >/dev/null || stop "lite $ver не совпадает с проверенным архивом после прерванного шага 2, повторите шаг 1"
+    echo "Продолжаю прерванный шаг 2: замена уже сделана, lite совпадает с архивом"
+    place=no
   fi
   if [ "$place" = yes ]; then
-    # Ставим не показанную в шаге 1 распаковку, а свежую из того же проверенного архива.
-    stash "$ST/fresh" staging-fresh
-    unpack_checked "$ST/fresh" "$ver"
     event consent_given "id=$id"
     if [ -d lite ]; then mv lite _old; fi
     mv "$ST/fresh/lite" lite
   fi
   if [ -d _old ]; then stash lite-prev lite-prev; mv _old lite-prev; fi
+  [ "$(state swapped)" = yes ] || echo "swapped=yes" >> "$ST/STATE"
   mywork
   stash "$ST" staging
   event installed "id=$id version=$(cat lite/VERSION)"

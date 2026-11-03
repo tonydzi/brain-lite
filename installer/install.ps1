@@ -47,6 +47,9 @@ function Show-Archive {
   if (Test-Path $a) { "Folders in _archive: $(@(Get-ChildItem $a -Force).Count). The recipe deletes nothing; the owner may delete them by hand." }
 }
 
+function Get-Tree($p) { $r = (Resolve-Path $p).Path; Get-ChildItem $p -Recurse -File -Force | ForEach-Object { [pscustomobject]@{ File = $_.FullName.Substring($r.Length); Hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash } } }
+function Test-SameTree($a, $b) { -not (Compare-Object @(Get-Tree $a) @(Get-Tree $b) -Property File, Hash) }
+
 function Expand-Checked($dest, $ver) {
   $zipPath = Join-Path $St 'brain-lite.zip'
   Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -88,7 +91,6 @@ function Invoke-Prepare {
   if (Test-Path $lite) {
     "Current version: $(First-Line (Join-Path $lite 'VERSION'))"
     'Changed files:'
-    function Get-Tree($p) { $r = (Resolve-Path $p).Path; Get-ChildItem $p -Recurse -File -Force | ForEach-Object { [pscustomobject]@{ File = $_.FullName.Substring($r.Length); Hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash } } }
     Compare-Object @(Get-Tree $lite) @(Get-Tree (Join-Path $St 'new/lite')) -Property File, Hash | Select-Object -ExpandProperty File -Unique
   } else { 'No lite folder yet: first install' }
   'CHANGELOG head:'
@@ -125,22 +127,31 @@ function Invoke-Apply {
   $ver = Read-State 'version'; $id = Read-State 'install_id'; $expected = Read-State 'zip_sha256'
   if (-not $ver -or -not $expected) { Stop-Here '_staging/STATE is incomplete, run step 1 again' }
   if ((Sha (Join-Path $St 'brain-lite.zip')) -ne $expected) { Stop-Here 'archive changed after step 1, run step 1 again' }
+  # Install and compare only a fresh unpack of the same verified archive, not the one shown in step 1.
+  $fresh = Join-Path $St 'fresh'
+  Move-ToArchive $fresh 'staging-fresh'
+  Expand-Checked $fresh $ver
+  $freshLite = Join-Path $fresh 'lite'
   $place = $true
   if (Test-Path _old) {
     if (-not (Test-Path lite)) { 'Resuming an interrupted update: _old is there, lite is not yet' }
-    elseif ((First-Line lite/VERSION) -eq $ver) { "Resuming an interrupted update: lite $ver is in place, _old not moved yet"; $place = $false }
+    elseif ((First-Line lite/VERSION) -eq $ver) {
+      if (-not (Test-SameTree (Join-Path $Root 'lite') $freshLite)) { Stop-Here "lite $ver does not match the verified archive and _old is still there: show the owner VERSION of the folders, see troubleshooting" }
+      "Resuming an interrupted update: lite $ver is in place and matches the archive, _old not moved yet"; $place = $false
+    }
     else { Stop-Here "_old left from an interrupted update (lite: $(First-Line lite/VERSION), _old: $(First-Line _old/VERSION)), see troubleshooting" }
+  } elseif ((Read-State 'swapped') -eq 'yes' -and (First-Line lite/VERSION) -eq $ver) {
+    # The swap already happened in this apply and it stopped later: keep lite-prev, or the rollback point is lost.
+    if (-not (Test-SameTree (Join-Path $Root 'lite') $freshLite)) { Stop-Here "lite $ver does not match the verified archive after an interrupted step 2, run step 1 again" }
+    'Resuming an interrupted step 2: the swap is done, lite matches the archive'; $place = $false
   }
   if ($place) {
-    # Install not the unpack shown in step 1 but a fresh one from the same verified archive.
-    $fresh = Join-Path $St 'fresh'
-    Move-ToArchive $fresh 'staging-fresh'
-    Expand-Checked $fresh $ver
     Write-Event 'consent_given' "id=$id"
     if (Test-Path lite) { Move-Item lite _old }
-    Move-Item -LiteralPath (Join-Path $fresh 'lite') lite
+    Move-Item -LiteralPath $freshLite lite
   }
   if (Test-Path _old) { Move-ToArchive (Join-Path $Root 'lite-prev') 'lite-prev'; Move-Item _old lite-prev }
+  if ((Read-State 'swapped') -ne 'yes') { Add-Content -Path (Join-Path $St 'STATE') -Value 'swapped=yes' -Encoding ascii }
   Set-MyWork
   Move-ToArchive $St 'staging'
   Write-Event 'installed' "id=$id version=$(First-Line lite/VERSION)"

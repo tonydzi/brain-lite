@@ -143,6 +143,18 @@ try {
   if ((Run 0 "$W/r102") -and (Run 1 $null) -and (@(Get-ChildItem "$H/My-Work/Brain" -Recurse -Filter README.md).Count -eq 12) -and -not (Test-Path "$H/My-Work/.brain-copy") -and @(Get-ChildItem "$H/_archive" -Directory -Filter 'brain-partial-*').Count) { Ok 'cut brain copy is not taken for a finished one: archived, brain copied whole' } else { Bad 'cut brain copy'; LogText }
   Move-Item "$H/My-Work/Brain" "$W/brain-fresh"; Move-Item "$W/brain-away" "$H/My-Work/Brain"; Run 2 $null | Out-Null
   if ((TreeHash "$H/lite") -ne $l) { Bad 'setup for the next cases: lite did not come back' }
+  # Stopped after "new lite in place", before _old moved: lite is compared with the archive, not trusted by VERSION.
+  Run 0 "$W/r102" | Out-Null; Move-Item "$H/lite" "$H/_old"; Copy-Item -Recurse "$H/_staging/new/lite" "$H/lite"; Add-Content "$H/lite/AGENTS-CORE.md" 'tampered line'
+  if (Run 1 $null) { Bad 'resume accepted a tampered lite by VERSION alone'; LogText } elseif (((LogText) -match 'does not match the verified archive') -and (Test-Path "$H/_old")) { Ok 'resume: tampered lite with the same VERSION refused, _old intact' } else { Bad 'resume with tamper: wrong reason'; LogText }
+  Move-Item "$H/lite" "$W/lite-tampered"; Copy-Item -Recurse "$H/_staging/new/lite" "$H/lite"
+  if ((Run 1 $null) -and ((Ver lite) -eq '1.0.2') -and ((Ver lite-prev) -eq '1.0.1') -and -not (Test-Path "$H/_old") -and ((LogText) -match 'matches the archive')) { Ok 'resume: whole lite of the same version accepted, _old became lite-prev' } else { Bad 'resume without tamper'; LogText }
+  Run 2 $null | Out-Null
+  # Swap done, stopped later (brain copy): rerunning step 2 keeps lite-prev, the rollback point survives.
+  Run 0 "$W/r102" | Out-Null; New-Item -ItemType Directory -Force "$W/arch-sim" | Out-Null; Move-Item "$H/lite-prev" "$W/arch-sim/"; Move-Item "$H/lite" "$H/lite-prev"; Copy-Item -Recurse "$H/_staging/new/lite" "$H/lite"; Add-Content "$H/_staging/STATE" 'swapped=yes'
+  if ((Run 1 $null) -and ((Ver lite) -eq '1.0.2') -and ((Ver lite-prev) -eq '1.0.1') -and ((LogText) -match 'the swap is done')) { Ok 'rerun of step 2 after a later stop: lite-prev stays the previous version' } else { Bad 'rerun moved the rollback point'; LogText }
+  Run 2 $null | Out-Null
+  if (((Ver lite) -ne '1.0.1') -or ((Ver lite-prev) -ne '1.0.2')) { Bad 'setup: rollback did not return 1.0.1/1.0.2' }
+  $l = TreeHash "$H/lite"
   Run 0 "$W/r102" | Out-Null; [IO.File]::AppendAllText("$H/_staging/brain-lite.zip", 'x')
   if (Run 1 $null) { Bad 'archive changed between steps, step 2 went on' } elseif (((LogText) -match 'archive changed after step 1') -and ((TreeHash "$H/lite") -eq $l)) { Ok 'archive changed between steps: stop, lite intact' } else { Bad 'archive swap: wrong reason'; LogText }
 
