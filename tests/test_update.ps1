@@ -158,6 +158,12 @@ try {
   Run 0 "$W/r102" | Out-Null; [IO.File]::AppendAllText("$H/_staging/brain-lite.zip", 'x')
   if (Run 1 $null) { Bad 'archive changed between steps, step 2 went on' } elseif (((LogText) -match 'archive changed after step 1') -and ((TreeHash "$H/lite") -eq $l)) { Ok 'archive changed between steps: stop, lite intact' } else { Bad 'archive swap: wrong reason'; LogText }
 
+  # Codex sandbox on Windows (acceptance run 03.11): no OS variable, and Windows PowerShell 5.1 has no $IsWindows,
+  # so 'curl' became Invoke-WebRequest and step 1 stopped. curl.exe is now chosen by presence.
+  $savedOS = $env:OS; Remove-Item Env:OS -ErrorAction SilentlyContinue
+  $okNoOS = (Run 0 "$W/r102") -and ((LogText) -match 'New version: 1.0.2')
+  $env:OS = $savedOS
+  if ($okNoOS) { Ok 'step 1 without the OS variable (Codex sandbox): curl.exe found by presence' } else { Bad 'step 1 without OS variable'; LogText }
   # Same PowerShell process, same second: archive names must not collide (CI 03.11 put _staging inside an older archive).
   # Deterministic: the block runs in this process, so its name is staging-<second>-$PID; occupy the next 20 seconds.
   $t0 = [DateTime]::UtcNow

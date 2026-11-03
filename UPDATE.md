@@ -179,7 +179,7 @@ $Started = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
 $here = (Get-Location).ProviderPath.TrimEnd('\', '/')
 foreach ($d in 'lite', 'lite-prev') { $p = (Join-Path $Root $d); if ($here -eq $p -or $here.StartsWith($p + [IO.Path]::DirectorySeparatorChar)) { throw 'STOP: the assistant is open inside lite, open it in My-Work' } }
 $Rel = 'https://github.com/tonydzi/brain-lite/releases/'
-$Curl = if ($IsWindows -or $env:OS -eq 'Windows_NT') { 'curl.exe' } else { 'curl' }
+$Curl = if (Get-Command curl.exe -CommandType Application -ErrorAction SilentlyContinue) { 'curl.exe' } else { 'curl' }  # in Windows PowerShell 'curl' is Invoke-WebRequest
 $ErrorActionPreference = 'Continue'  # PowerShell 5.1 turns curl's stderr into an exception before the check below
 if (-not $V) { $V = "$(& $Curl -fsSL --proto '=https' --proto-redir '=https' "${Rel}latest/download/VERSION" | Select-Object -First 1)".Trim() }
 $ErrorActionPreference = 'Stop'
@@ -252,7 +252,7 @@ $Root = Join-Path $HOME 'Second-Brain-Lite'
 $Url = 'https://github.com/tonydzi/brain-lite/releases/latest/download/VERSION'
 $Cur = (Get-Content (Join-Path $Root 'lite/VERSION') -ErrorAction SilentlyContinue | Select-Object -First 1); if (-not $Cur) { $Cur = 'none' }
 $Prev = (Get-Content (Join-Path $Root 'lite-prev/VERSION') -ErrorAction SilentlyContinue | Select-Object -First 1)
-$Curl = if ($IsWindows -or $env:OS -eq 'Windows_NT') { 'curl.exe' } else { 'curl' }
+$Curl = if (Get-Command curl.exe -CommandType Application -ErrorAction SilentlyContinue) { 'curl.exe' } else { 'curl' }  # in Windows PowerShell 'curl' is Invoke-WebRequest
 $ErrorActionPreference = 'Continue'
 $New = (& $Curl -fsSL --proto '=https' --proto-redir '=https' --max-time 20 $Url 2>$null | Select-Object -First 1)
 if (Test-Path (Join-Path $Root 'My-Work')) { Set-Content -Path (Join-Path $Root 'My-Work/.lite-last-check') -Value (Get-Date -Format 'yyyy-MM-dd') }
