@@ -73,6 +73,7 @@ REQUIRED_IN_UPDATE = [
     "if ($want -ne $got) { throw 'STOP: install.ps1 checksum mismatch' }",
     "установщик изменился после шага 1",
     "the installer changed after step 1",
+    "Get-Command curl.exe -CommandType Application",  # без $env:OS в 5.1 curl = Invoke-WebRequest
     "lite-prev",
 ]
 # Установщик едет файлами релиза рядом с архивом (installer/ в export-ignore), поэтому страж читает

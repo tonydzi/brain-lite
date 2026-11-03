@@ -39,6 +39,7 @@ case_ 1 "из PowerShell-установщика вырезано сравнен�
 case_ 1 "из PowerShell-блока вырезано сравнение суммы установщика" "grep -v 'want -ne' UPDATE.md > u && mv u UPDATE.md"
 case_ 1 "кириллица в PowerShell-блоке" "sed -i.bak 's/Install folder:/Папка:/' UPDATE.md && rm UPDATE.md.bak"
 case_ 1 "кириллица в PowerShell-установщике" "sed -i.bak 's/No lite folder yet: first install/Первая установка/' installer/install.ps1 && rm installer/install.ps1.bak"
+case_ 1 "curl снова выбирается по переменной OS" "sed -i.bak 's/Get-Command curl.exe -CommandType Application -ErrorAction SilentlyContinue/IsWindows/' UPDATE.md && rm UPDATE.md.bak"
 case_ 1 "чужой источник в шаге 1" "grep -v 'чужой источник' UPDATE.md > u && mv u UPDATE.md"
 case_ 1 "снято ограничение https" "sed -i.bak \"s/--proto '=https' --proto-redir '=https' //\" UPDATE.md && rm UPDATE.md.bak"
 case_ 1 "e-mail в тексте" "echo 'пишите friend@example.com' >> FIRST-TASK.md"
