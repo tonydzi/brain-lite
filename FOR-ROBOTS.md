@@ -14,14 +14,19 @@ operator's policies or lets you install anything on your own.
    (`tools/law-floor.sha256`), so a change to the safety floor always needs a human.
    The set is enforced by `tools/lite_guard.py` over `git archive HEAD`: only `.md`,
    `VERSION`, `LICENSE`; at most 60 files and 400 KB; no secrets, private paths or e-mails.
-2. **Sync = one-way release, applied by the owner's own agent.** `UPDATE.md` downloads
-   `brain-lite.zip` + `SHA256SUMS.txt`, verifies, rejects `..`, paths outside `lite/`,
-   symlinks and missing files, shows the diff, waits for the owner's "yes", swaps
-   `lite` -> `lite-prev` (rollback). Nothing flows back; `My-Work/` is never read or sent.
+2. **Sync = one-way release, applied by the owner's own agent.** `UPDATE.md` resolves the
+   latest version once, then downloads `brain-lite.zip`, the companion installer
+   (`installer/install.sh` or `install.ps1`, a release asset, never inside the zip) and
+   `SHA256SUMS.txt` from that one tag, verifies the installer and runs its `prepare` phase:
+   checksum, rejects `..`, paths outside `lite/`, symlinks and missing files, shows the diff.
+   After the owner's separate "yes" the `apply` phase re-verifies and swaps
+   `lite` -> `lite-prev` (rollback). No `curl | sh`, no deletion (old copies go to `_archive/`),
+   no network inside the installer. Nothing flows back; `My-Work/` is never read or sent.
 3. **The recipe is the tested artifact.** `tests/test_update.sh` executes the exact `sh`
-   blocks of `UPDATE.md` in bash, zsh, sh and dash; `tests/test_update.ps1` executes the
-   exact PowerShell blocks in PowerShell 7 and Windows PowerShell 5.1 (CI). Each suite has
-   a mutant (checksum check removed) that must pass a swapped archive, proving the test bites.
+   blocks of `UPDATE.md` (which start the installer) in bash, zsh, sh and dash;
+   `tests/test_update.ps1` executes the exact PowerShell blocks in PowerShell 7 and
+   Windows PowerShell 5.1 (CI). Each suite has a mutant (installer checksum check removed)
+   that must pass a swapped archive, proving the test bites.
 4. **Reproducible archive.** `TZ=UTC git archive --format=zip -0`; CI rebuilds the zip from
    the tag and compares it with the published asset (`tests/test_release.sh` proves the
    timezone pin matters).

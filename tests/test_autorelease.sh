@@ -54,6 +54,11 @@ echo "# tools only" >> tools/upstream.note; echo x >> tests/test_guard.sh; commi
 $PY tools/release_needed.py check > "$W/log"; rc=$?
 [ "$rc" = 3 ] && ok "правка только tools/ и tests/: релиза нет" || { bad "tools-правка: rc=$rc"; cat "$W/log"; }
 
+new_clone
+echo "# правка установщика" >> installer/install.sh; commit installer
+$PY tools/release_needed.py check > "$W/log"; rc=$?
+[ "$rc" = 0 ] && grep -q 'installer/install.sh' "$W/log" && ok "правка только установщика: релиз нужен (он едет файлом релиза)" || { bad "правка установщика: rc=$rc"; cat "$W/log"; }
+
 new_clone; mksrc
 printf '\n- Новое правило из набора.\n' >> "$W/src/law/CORE.md.tmp" 2>/dev/null; $PY - "$W/src/law/CORE.md" <<'PYEOF'
 import sys; p=sys.argv[1]; t=open(p).read(); t=t.replace("## §11.", "- Новое правило из набора.\n\n## §11.", 1); open(p,"w").write(t)

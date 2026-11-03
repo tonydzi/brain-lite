@@ -14,6 +14,17 @@ in `My-Work`. Nothing runs on a schedule and nothing syncs. The only outside cal
 assistant asks GitHub for the latest version number (GitHub counts such downloads anonymously).
 The library files are written in Russian; your assistant reads them and talks to you in your language.
 
+## 0. Three questions first
+
+| Question | If yes | If no |
+|---|---|---|
+| Do you have the Claude Code or Codex **app** that can see folders on this computer? | Go on to step 1 | Install the app from the links above and sign in first. That is a separate step, not part of installing lite. A plain web chat (claude.ai, chatgpt.com) cannot see local files: do not paste the block there |
+| Is this Mac, Linux or Windows? | The assistant picks the right part of the recipe | Other systems are not supported: write to Anton |
+| Is the assistant open in your home folder or in `Second-Brain-Lite`, and **not** inside `lite`? | Go on | Open it in your home folder |
+
+On a work Windows computer, policy may forbid running scripts. The recipe then says `STOP`:
+that is the correct result, do not work around it. The recipe records the start time itself.
+
 ## 1. Open the assistant in your home folder
 
 1. Open Claude Code or Codex with your home folder as the working folder
@@ -44,9 +55,11 @@ unless I ask. Publish nothing.
 
 Then explain in three sentences what the skills can do and how my second brain in
 ~/Second-Brain-Lite/My-Work/Brain is organized, suggest a trial task from FIRST-TASK.md and
-ask me to name one real task. Save the result as a new file in ~/Second-Brain-Lite/My-Work and
-leave a short receipt: date, task, file, how it was checked. Money, deletion, publishing,
-sharing data and new access each need my separate direct request. Answer me in English.
+ask me to name one real task. Do it following FIRST-TASK.md: save the result in
+~/Second-Brain-Lite/My-Work/Brain and fill the receipt following the lite-check skill. Take the
+times from ~/Second-Brain-Lite/lite-install.log and the clock, write UNKNOWN for what is unknown,
+do not put the task's content in the receipt. Money, deletion, publishing, sharing data and new
+access each need my separate direct request. Answer me in English.
 ```
 
 From then on, open the assistant in **`~/Second-Brain-Lite/My-Work`**: its `AGENTS.md` points it
@@ -74,8 +87,9 @@ The first run is verified when you can show:
 
 - one real task and a useful result;
 - a check of the result against what you gave the assistant;
-- the result file in `My-Work` (or the result in chat if file access is limited);
-- a receipt with the date and the result's location, no secrets.
+- the result file in `My-Work/Brain` (a result only in chat counts as a trial, not a verified run);
+- a new chat found that result by itself from a question, without a hint or a note;
+- a `lite-check` receipt with its fields and times, no secrets and no task content.
 
 Without that, the status is "kit received, first run awaiting a check".
 
@@ -85,14 +99,16 @@ When we improve the law, skills or templates, a new version is released. Once a 
 first chat of the day) the assistant checks the version number and says in one line whether an
 update exists; it installs nothing. The app may ask permission for that one network command; you
 can answer "always allow". To update, say **"update lite"**: it follows [UPDATE.md](UPDATE.md),
-downloads the release, verifies the checksum, shows what changed and, after your "yes", puts the
-new version in `lite` and the previous one in `lite-prev`. Worse than before: **"roll back lite"**.
+downloads the release and the installer, verifies the checksums, shows what changed and, after
+your "yes", puts the new version in `lite` and the previous one in `lite-prev`. The recipe deletes
+nothing: what it moved out of the way is in `_archive`. Worse than before: **"roll back lite"**.
 `My-Work` is never touched.
 
 ## Contact with Anton
 
-None by default: no telemetry, receipts or remote access (except the daily version question to
-GitHub, with none of your data). To tell us something or suggest an improvement, ask "prepare a
+None by default: no telemetry, automatic receipts or remote access (except the daily version
+question to GitHub, with none of your data). The `lite-check` receipt stays with you. If you want
+to help us make the next install faster, forward it to Anton yourself. To tell us something or suggest an improvement, ask "prepare a
 note to Anton" (the `lite-handoff` skill), read it and send it yourself the way you write to people.
 To improve the shared kit: fork and open a PR in this repository, with review.
 

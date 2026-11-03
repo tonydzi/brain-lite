@@ -9,15 +9,25 @@
 
 ```
 Second-Brain-Lite/      в домашней папке владельца
-  lite/        текущая версия, только для чтения
-  lite-prev/   прошлая версия, для отката
-  My-Work/     личные файлы владельца; рецепт их не читает и никуда не отправляет
+  lite/              текущая версия, только для чтения
+  lite-prev/         прошлая версия, для отката
+  My-Work/           личные файлы владельца; рецепт их не читает и никуда не отправляет
+  _archive/          то, что рецепт убрал с дороги; он ничего не удаляет, лишнее владелец удаляет сам
+  lite-install.log   время каждого шага установки (для квитанции, без содержания заметок)
 ```
 
 Источник один: релизы `https://github.com/tonydzi/brain-lite/releases`. В каждом релизе:
-`brain-lite.zip` (библиотека), `SHA256SUMS.txt` (контрольная сумма архива), `UPDATE.md` (этот рецепт)
-и `VERSION` (номер версии, для ежедневной проверки). Новые релизы выходят сами, когда мы улучшаем
-закон, скиллы или шаблоны; ставит их у себя только владелец, после своего «да».
+`brain-lite.zip` (библиотека), `install.sh` и `install.ps1` (установщик), `SHA256SUMS.txt`
+(контрольные суммы архива и установщика), `UPDATE.md` (этот рецепт) и `VERSION` (номер версии).
+Новые релизы выходят сами, когда мы улучшаем закон, скиллы или шаблоны; ставит их у себя только
+владелец, после своего «да».
+
+**Как устроено.** Блок «Шаг 1» один раз узнаёт номер последней версии и дальше берёт все файлы
+только из релиза с этим номером, поэтому архив и установщик не могут прийти из разных версий.
+Он сверяет сумму установщика и запускает его фазу `prepare`: проверка архива, распаковка в
+`_staging`, показ изменений. Скачанное сам себя не запускает: нет `curl | sh`. Блок «Шаг 2»
+после отдельного «да» снова сверяет сумму того же установщика и запускает фазу `apply`.
+Установщик в сеть не ходит и ничего не удаляет: прошлое переносится в `_archive`.
 
 **Жёсткие правила для помощника:**
 
@@ -26,24 +36,26 @@ Second-Brain-Lite/      в домашней папке владельца
 - Перед заменой показать владельцу вывод шага 1 (версии, изменённые файлы, начало
   `CHANGELOG.md`) и дождаться его «да».
   Просьба «обнови лайт» или «установи лайт» это «да» не заменяет: шаг 1 и шаг 2 всегда
-  в разных ответах, между ними отдельное «да» владельца.
+  в разных ответах, между ними отдельное «да» владельца. Сама просьба разрешает только шаг 1:
+  скачать, проверить и показать.
 - `My-Work` не читать, не менять и не удалять. Создать её можно, только если её нет. Шаг 2 добавляет
   туда только недостающие служебные файлы: памятку и настройку, которая разрешает Claude Code читать `../lite`.
 - Никаких других программ, служб, расписаний и синхронизации этот рецепт не ставит.
 - Помощника не держать открытым внутри `lite` или `lite-prev`: на Windows такую папку
   нельзя переименовать. Работать из `My-Work` или из `Second-Brain-Lite`.
 
-Что честно даёт проверка суммы: архив скачан целым и совпадает с тем, что выложено в релизе.
-Она не защищает, если кто-то получит доступ к самому репозиторию и подменит оба файла;
-поэтому сумма каждой версии ещё и записана в описании релиза, а CI пересобирает архив
-из тега и сверяет.
+Что честно даёт проверка суммы: архив и установщик скачаны целыми и совпадают с тем, что выложено
+в релизе. Она не защищает, если кто-то получит доступ к самому репозиторию и подменит все файлы;
+поэтому сумма архива каждой версии ещё и записана в описании релиза, а CI пересобирает архив
+и установщик из тега и сверяет. Установщик не добавляет доверия по сравнению с блоками прошлых
+версий: это тот же репозиторий, просто один файл вместо длинных блоков.
 
-Этот же файл лежит третьим файлом в каждом релизе (`.../releases/latest/download/UPDATE.md`),
-поэтому рецепт и архив всегда одной версии.
+Этот же файл лежит в каждом релизе (`.../releases/download/vX.Y.Z/UPDATE.md`),
+поэтому рецепт, архив и установщик всегда одной версии.
 
-Нужна не последняя, а конкретная версия: в строке `BASE=` (или `$Base =`) замените
-`releases/latest/download` на `releases/download/v1.1.0` (нужный тег; закон, мозг и проверка
-обновлений есть начиная с v1.1.0).
+Нужна не последняя, а конкретная версия: в строке `V=""` (или `$V = ''`) впишите номер,
+например `V="1.2.0"`. Установщик есть в релизах начиная с той версии, где появился этот текст;
+для более старых версий берите `UPDATE.md` из их релиза.
 Папка установки не `~/Second-Brain-Lite`: поменяйте строку `ROOT=` (или `$Root =`)
 во всех блоках одинаково.
 
@@ -55,85 +67,55 @@ Second-Brain-Lite/      в домашней папке владельца
 
 ```sh
 set -eu
-purge() { case "$1" in ""|/*|*..*) echo "СТОП: не удаляю $1"; exit 1 ;; esac; [ ! -e "$1" ] || find "$1" -delete; }
 ROOT="$HOME/Second-Brain-Lite"
-BASE="https://github.com/tonydzi/brain-lite/releases/latest/download"
-case "$BASE" in https://github.com/tonydzi/brain-lite/releases/*) ;; *) echo "СТОП: чужой источник $BASE"; exit 1 ;; esac
+V=""
+STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+echo "started_at=$STARTED"
 HERE=$(pwd -P)
 ROOTP=$( (cd "$ROOT" 2>/dev/null && pwd -P) || echo "$ROOT" )
 case "$HERE/" in "$ROOTP/lite/"*|"$ROOTP/lite-prev/"*) echo "СТОП: помощник открыт внутри lite, откройте его в My-Work"; exit 1 ;; esac
+REL="https://github.com/tonydzi/brain-lite/releases/"
+if [ -z "$V" ]; then V=$(curl -fsSL --proto '=https' --proto-redir '=https' "${REL}latest/download/VERSION" | head -n 1) || { echo "СТОП: не могу узнать последнюю версию (нет сети или релиза)"; exit 1; }; fi
+case "$V" in [0-9]*.[0-9]*.[0-9]*) ;; *) echo "СТОП: не похоже на номер версии: $V"; exit 1 ;; esac
+BASE="${REL}download/v$V"
+case "$BASE" in https://github.com/tonydzi/brain-lite/releases/download/v*) ;; *) echo "СТОП: чужой источник $BASE"; exit 1 ;; esac
 echo "Папка установки: $ROOT"
 echo "Источник: $BASE"
 mkdir -p "$ROOT"
 cd "$ROOT"
-[ -d lite ] || echo "Папки lite ещё нет: это первая установка"
-purge _dl
-mkdir _dl
-cd _dl
-curl -fsSL --proto '=https' --proto-redir '=https' -o SHA256SUMS.txt "$BASE/SHA256SUMS.txt"
-curl -fsSL --proto '=https' --proto-redir '=https' -o brain-lite.zip "$BASE/brain-lite.zip"
-grep -E '[ *]brain-lite[.]zip$' SHA256SUMS.txt > zip.sha256 || { echo "СТОП: в SHA256SUMS.txt нет строки архива"; exit 1; }
-if command -v shasum >/dev/null 2>&1; then
-  LC_ALL=C shasum -a 256 -c zip.sha256 || { echo "СТОП: контрольная сумма не совпала"; exit 1; }
-else
-  sha256sum -c zip.sha256 || { echo "СТОП: контрольная сумма не совпала"; exit 1; }
-fi
-LIST=$(unzip -Z1 brain-lite.zip) || { echo "СТОП: не могу прочитать список архива"; exit 1; }
-BAD=$(printf '%s\n' "$LIST" | grep -vE '^lite/' || true)
-SLIP=$(printf '%s\n' "$LIST" | grep -E '(^|/)[.][.](/|$)' || true)
-[ -z "$BAD$SLIP" ] || { echo "СТОП: подозрительные пути в архиве:"; echo "$BAD$SLIP"; exit 1; }
-TYPES=$(unzip -Z brain-lite.zip) || { echo "СТОП: не могу прочитать список архива"; exit 1; }
-if printf '%s\n' "$TYPES" | grep -q '^l'; then echo "СТОП: в архиве ссылки на чужие файлы"; exit 1; fi
-unzip -q brain-lite.zip -d new
-if [ -n "$(find new -type l)" ]; then purge new; echo "СТОП: в архиве ссылки на чужие файлы"; exit 1; fi
-for f in VERSION RULES.md UPDATE.md CHANGELOG.md templates/My-Work-AGENTS.md; do
-  [ -f "new/lite/$f" ] || { purge new; echo "СТОП: в архиве нет lite/$f"; exit 1; }
+if [ -e _staging ]; then mkdir -p _archive; mv _staging "_archive/staging-$(date -u +%Y%m%dT%H%M%SZ)-$$"; fi
+mkdir _staging
+for f in SHA256SUMS.txt VERSION install.sh brain-lite.zip; do
+  curl -fsSL --proto '=https' --proto-redir '=https' -o "_staging/$f" "$BASE/$f" || { echo "СТОП: не скачался $f"; exit 1; }
 done
-echo "Новая версия: $(cat new/lite/VERSION)"
-if [ -d ../lite ]; then
-  echo "Текущая версия: $(cat ../lite/VERSION 2>/dev/null || echo неизвестна)"
-  echo "Изменённые файлы:"
-  diff -rq ../lite new/lite || true
-fi
-echo "Начало CHANGELOG:"
-head -n 20 new/lite/CHANGELOG.md
-echo "ШАГ 1 ЗАКОНЧЕН, ничего не заменено. Покажите это владельцу и спросите «да». Просьба обновить за «да» не считается."
+WANT=$(grep -E '[ *]install[.]sh$' _staging/SHA256SUMS.txt | head -n 1 | cut -d' ' -f1)
+[ -n "$WANT" ] || { echo "СТОП: в SHA256SUMS.txt нет строки install.sh"; exit 1; }
+if command -v shasum >/dev/null 2>&1; then GOT=$(LC_ALL=C shasum -a 256 _staging/install.sh | cut -d' ' -f1); else GOT=$(sha256sum _staging/install.sh | cut -d' ' -f1); fi
+[ "$GOT" = "$WANT" ] || { echo "СТОП: контрольная сумма install.sh не совпала"; exit 1; }
+echo "Установщик: $ROOT/_staging/install.sh sha256 $GOT"
+sh _staging/install.sh prepare "$STARTED"
 ```
 
-Помощник показывает этот вывод владельцу и ждёт «да». Нет «да»: удалить только `_dl`, ничего больше.
+Помощник показывает этот вывод владельцу и ждёт «да». Нет «да»: ничего не делать, `_staging`
+уйдёт в `_archive` при следующем шаге 1.
 
 ### Шаг 2. Заменить версию (после «да»)
 
 ```sh
 set -eu
-purge() { case "$1" in ""|/*|*..*) echo "СТОП: не удаляю $1"; exit 1 ;; esac; [ ! -e "$1" ] || find "$1" -delete; }
 ROOT="$HOME/Second-Brain-Lite"
 HERE=$(pwd -P)
 ROOTP=$( (cd "$ROOT" 2>/dev/null && pwd -P) || echo "$ROOT" )
 case "$HERE/" in "$ROOTP/lite/"*|"$ROOTP/lite-prev/"*) echo "СТОП: помощник открыт внутри lite, откройте его в My-Work"; exit 1 ;; esac
 cd "$ROOT"
-[ ! -e _swap ] || { echo "СТОП: остался _swap от прерванного отката, см. «Если не получилось»"; exit 1; }
-[ ! -e _old ] || { echo "СТОП: осталась _old от прерванной замены, см. «Если не получилось»"; exit 1; }
-[ -f _dl/new/lite/VERSION ] || { echo "СТОП: сначала шаг 1"; exit 1; }
-if [ -d lite ]; then mv lite _old; fi
-mv _dl/new/lite lite
-if [ -d _old ]; then purge lite-prev; mv _old lite-prev; fi
-purge _dl
-mkdir -p My-Work
-[ -e My-Work/AGENTS.md ] || cp lite/templates/My-Work-AGENTS.md My-Work/AGENTS.md
-[ -e My-Work/CLAUDE.md ] || printf '@AGENTS.md\n' > My-Work/CLAUDE.md
-mkdir -p My-Work/.claude
-[ -e My-Work/.claude/settings.json ] || printf '{\n  "permissions": {\n    "additionalDirectories": ["../lite"]\n  }\n}\n' > My-Work/.claude/settings.json
-if [ -f lite/AGENTS-CORE.md ] && ! grep -q 'AGENTS-CORE' My-Work/AGENTS.md; then
-  printf '\n<!-- brain-lite: AGENTS-CORE -->\nВ начале каждого чата прочитай ../lite/AGENTS-CORE.md и действуй по нему.\n' >> My-Work/AGENTS.md
-  echo "В памятку My-Work/AGENTS.md добавлена строка про ../lite/AGENTS-CORE.md"
-fi
-if [ -d lite/brain ] && [ ! -e My-Work/Brain ]; then cp -R lite/brain My-Work/Brain; echo "Второй мозг создан: My-Work/Brain"; fi
-echo "Готово: lite $(cat lite/VERSION)"
-if [ -d lite-prev ]; then echo "Для отката: lite-prev $(cat lite-prev/VERSION 2>/dev/null || echo неизвестна)"; fi
+[ -f _staging/install.sh ] && [ -f _staging/SHA256SUMS.txt ] || { echo "СТОП: сначала шаг 1"; exit 1; }
+WANT=$(grep -E '[ *]install[.]sh$' _staging/SHA256SUMS.txt | head -n 1 | cut -d' ' -f1)
+if command -v shasum >/dev/null 2>&1; then GOT=$(LC_ALL=C shasum -a 256 _staging/install.sh | cut -d' ' -f1); else GOT=$(sha256sum _staging/install.sh | cut -d' ' -f1); fi
+[ -n "$WANT" ] && [ "$GOT" = "$WANT" ] || { echo "СТОП: установщик изменился после шага 1, повторите шаг 1"; exit 1; }
+sh _staging/install.sh apply
 ```
 
-Старая версия удаляется только после того, как новая уже стоит на месте.
+Старая версия не удаляется: прошлая `lite-prev` переезжает в `_archive`, текущая становится `lite-prev`.
 
 ### Откат
 
@@ -179,61 +161,52 @@ else echo "Есть обновление: $CUR -> $NEW. Скажите «обн�
 ## Windows (PowerShell)
 
 Встроенные `curl.exe`, `Get-FileHash` и `Expand-Archive` есть в Windows 10 и 11; ставить ничего не надо.
-Блоки написаны только латиницей, поэтому кодировка файла их не ломает. Вставлять блок
-в PowerShell целиком, или сохранить его в `.ps1` и запустить
-`powershell -NoProfile -ExecutionPolicy Bypass -File <файл>.ps1` (политика меняется только
-для этого запуска). Сообщения блоков по-английски: `STOP: ...` значит то же, что `СТОП`.
+Блоки и установщик написаны только латиницей, поэтому кодировка файла их не ломает. Вставлять блок
+в PowerShell целиком. Установщик блок запускает той же PowerShell, что и сам блок:
+`-ExecutionPolicy Bypass` действует только на этот один запуск уже проверенного файла, политика
+системы не меняется. Если политика компьютера (например, рабочего) запрещает и это, правильный
+результат `STOP`: не снимать блокировку файла, не менять политику, не отключать защиту.
+Сообщения по-английски: `STOP: ...` значит то же, что `СТОП`.
 
 ### Шаг 1. Скачать, проверить, показать
 
 ```powershell
 $ErrorActionPreference = 'Stop'
 $Root = Join-Path $HOME 'Second-Brain-Lite'
-$Base = 'https://github.com/tonydzi/brain-lite/releases/latest/download'
-if ($Base -notlike 'https://github.com/tonydzi/brain-lite/releases/*') { throw "STOP: foreign source $Base" }
+$V = ''
+$Started = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+"started_at=$Started"
 $here = (Get-Location).ProviderPath.TrimEnd('\', '/')
 foreach ($d in 'lite', 'lite-prev') { $p = (Join-Path $Root $d); if ($here -eq $p -or $here.StartsWith($p + [IO.Path]::DirectorySeparatorChar)) { throw 'STOP: the assistant is open inside lite, open it in My-Work' } }
+$Rel = 'https://github.com/tonydzi/brain-lite/releases/'
+$Curl = if ($IsWindows -or $env:OS -eq 'Windows_NT') { 'curl.exe' } else { 'curl' }
+$ErrorActionPreference = 'Continue'  # PowerShell 5.1 turns curl's stderr into an exception before the check below
+if (-not $V) { $V = "$(& $Curl -fsSL --proto '=https' --proto-redir '=https' "${Rel}latest/download/VERSION" | Select-Object -First 1)".Trim() }
+$ErrorActionPreference = 'Stop'
+if ($V -notmatch '^\d+\.\d+\.\d+$') { throw "STOP: cannot get the latest version (no network or release): $V" }
+$Base = "${Rel}download/v$V"
+if ($Base -notlike 'https://github.com/tonydzi/brain-lite/releases/download/v*') { throw "STOP: foreign source $Base" }
 "Install folder: $Root"
 "Source: $Base"
-$Curl = if ($IsWindows -or $env:OS -eq 'Windows_NT') { 'curl.exe' } else { 'curl' }
 New-Item -ItemType Directory -Force $Root | Out-Null
 Set-Location $Root
-if (-not (Test-Path lite)) { 'No lite folder yet: first install' }
-if (Test-Path _dl) { Remove-Item -Recurse -Force _dl }
-New-Item -ItemType Directory _dl | Out-Null
-$ErrorActionPreference = 'Continue'  # PowerShell 5.1 turns curl's stderr into an exception before the check below
-& $Curl -fsSL --proto '=https' --proto-redir '=https' -o _dl/SHA256SUMS.txt "$Base/SHA256SUMS.txt"; $rc1 = $LASTEXITCODE
-if (-not $rc1) { & $Curl -fsSL --proto '=https' --proto-redir '=https' -o _dl/brain-lite.zip "$Base/brain-lite.zip"; $rc2 = $LASTEXITCODE }
-$ErrorActionPreference = 'Stop'
-if ($rc1) { throw 'STOP: download of SHA256SUMS.txt failed' }
-if ($rc2) { throw 'STOP: download of brain-lite.zip failed' }
-$line = Get-Content _dl/SHA256SUMS.txt | Where-Object { $_ -match '[ *]brain-lite\.zip$' } | Select-Object -First 1
-if (-not $line) { throw 'STOP: no archive line in SHA256SUMS.txt' }
-$expected = ($line -split '\s+')[0].ToLower()
-$actual = (Get-FileHash _dl/brain-lite.zip -Algorithm SHA256).Hash.ToLower()
-if ($expected -ne $actual) { throw 'STOP: checksum mismatch' }
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$zip = [IO.Compression.ZipFile]::OpenRead((Resolve-Path _dl/brain-lite.zip).Path)
-$bad = @($zip.Entries | Where-Object { $_.FullName -cnotlike 'lite/*' -or $_.FullName -match '(^|[\\/])\.\.([\\/]|$)' -or $_.FullName -match '^[\\/]|:' })
-$links = @($zip.Entries | Where-Object { (($_.ExternalAttributes -shr 16) -band 0xF000) -eq 0xA000 })
-$zip.Dispose()
-if ($bad.Count) { throw "STOP: suspicious paths in archive: $($bad.FullName -join ', ')" }
-if ($links.Count) { throw "STOP: links to outside files in archive: $($links.FullName -join ', ')" }
-Expand-Archive _dl/brain-lite.zip -DestinationPath _dl/new
-if (@(Get-ChildItem _dl/new -Recurse -Force | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }).Count) { Remove-Item -Recurse -Force _dl/new; throw 'STOP: links to outside files in archive' }
-foreach ($f in 'VERSION', 'RULES.md', 'UPDATE.md', 'CHANGELOG.md', 'templates/My-Work-AGENTS.md') {
-  if (-not (Test-Path "_dl/new/lite/$f")) { Remove-Item -Recurse -Force _dl/new; throw "STOP: archive has no lite/$f" }
+if (Test-Path _staging) { New-Item -ItemType Directory -Force _archive | Out-Null; Move-Item _staging ("_archive/staging-" + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ') + "-$PID") }
+New-Item -ItemType Directory _staging | Out-Null
+foreach ($f in 'SHA256SUMS.txt', 'VERSION', 'install.ps1', 'brain-lite.zip') {
+  $ErrorActionPreference = 'Continue'
+  & $Curl -fsSL --proto '=https' --proto-redir '=https' -o "_staging/$f" "$Base/$f"; $rc = $LASTEXITCODE
+  $ErrorActionPreference = 'Stop'
+  if ($rc) { throw "STOP: download of $f failed" }
 }
-"New version: $(Get-Content _dl/new/lite/VERSION)"
-function Get-Tree($p) { $r = (Resolve-Path $p).Path; Get-ChildItem $p -Recurse -File -Force | ForEach-Object { [pscustomobject]@{ File = $_.FullName.Substring($r.Length); Hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash } } }
-if (Test-Path lite) {
-  "Current version: $(Get-Content lite/VERSION -ErrorAction SilentlyContinue)"
-  'Changed files:'
-  Compare-Object @(Get-Tree lite) @(Get-Tree _dl/new/lite) -Property File, Hash | Select-Object -ExpandProperty File -Unique
-}
-'CHANGELOG head:'
-Get-Content _dl/new/lite/CHANGELOG.md -TotalCount 20
-'STEP 1 DONE, nothing replaced. Show this to the owner and ask for yes. The request to update is not a yes.'
+$line = Get-Content _staging/SHA256SUMS.txt | Where-Object { $_ -match '[ *]install\.ps1$' } | Select-Object -First 1
+if (-not $line) { throw 'STOP: no install.ps1 line in SHA256SUMS.txt' }
+$want = ($line -split '\s+')[0].ToLower()
+$got = (Get-FileHash _staging/install.ps1 -Algorithm SHA256).Hash.ToLower()
+if ($want -ne $got) { throw 'STOP: install.ps1 checksum mismatch' }
+"Installer: $Root\_staging\install.ps1 sha256 $got"
+$PS = (Get-Process -Id $PID).Path
+& $PS -NoProfile -ExecutionPolicy Bypass -File _staging/install.ps1 prepare $Started
+if ($LASTEXITCODE) { throw "STOP: installer prepare exited $LASTEXITCODE" }
 ```
 
 ### Шаг 2. Заменить версию (после «да»)
@@ -244,25 +217,14 @@ $Root = Join-Path $HOME 'Second-Brain-Lite'
 $here = (Get-Location).ProviderPath.TrimEnd('\', '/')
 foreach ($d in 'lite', 'lite-prev') { $p = (Join-Path $Root $d); if ($here -eq $p -or $here.StartsWith($p + [IO.Path]::DirectorySeparatorChar)) { throw 'STOP: the assistant is open inside lite, open it in My-Work' } }
 Set-Location $Root
-if (Test-Path _swap) { throw 'STOP: _swap left from an interrupted rollback, see troubleshooting' }
-if (Test-Path _old) { throw 'STOP: _old left from an interrupted update, see troubleshooting' }
-if (-not (Test-Path _dl/new/lite/VERSION)) { throw 'STOP: run step 1 first' }
-if (Test-Path lite) { Move-Item lite _old }
-Move-Item _dl/new/lite lite
-if (Test-Path _old) { if (Test-Path lite-prev) { Remove-Item -Recurse -Force lite-prev }; Move-Item _old lite-prev }
-Remove-Item -Recurse -Force _dl
-New-Item -ItemType Directory -Force My-Work | Out-Null
-if (-not (Test-Path My-Work/AGENTS.md)) { Copy-Item lite/templates/My-Work-AGENTS.md My-Work/AGENTS.md }
-if (-not (Test-Path My-Work/CLAUDE.md)) { Set-Content -Path My-Work/CLAUDE.md -Value '@AGENTS.md' }
-New-Item -ItemType Directory -Force -Path My-Work/.claude | Out-Null
-if (-not (Test-Path My-Work/.claude/settings.json)) { Set-Content -Path My-Work/.claude/settings.json -Value '{ "permissions": { "additionalDirectories": ["../lite"] } }' -Encoding ascii }
-if ((Test-Path lite/AGENTS-CORE.md) -and -not (Select-String -Path My-Work/AGENTS.md -Pattern 'AGENTS-CORE' -Quiet)) {
-  Add-Content -Path My-Work/AGENTS.md -Value "`n<!-- brain-lite: AGENTS-CORE -->`nAt the start of every chat read ../lite/AGENTS-CORE.md and follow it."
-  'Added a line about ../lite/AGENTS-CORE.md to My-Work/AGENTS.md'
-}
-if ((Test-Path lite/brain) -and -not (Test-Path My-Work/Brain)) { Copy-Item -Recurse lite/brain My-Work/Brain; 'Second brain created: My-Work/Brain' }
-"Done: lite $(Get-Content lite/VERSION)"
-if (Test-Path lite-prev) { "For rollback: lite-prev $(Get-Content lite-prev/VERSION -ErrorAction SilentlyContinue)" }
+if (-not (Test-Path _staging/install.ps1) -or -not (Test-Path _staging/SHA256SUMS.txt)) { throw 'STOP: run step 1 first' }
+$line = Get-Content _staging/SHA256SUMS.txt | Where-Object { $_ -match '[ *]install\.ps1$' } | Select-Object -First 1
+$want = if ($line) { ($line -split '\s+')[0].ToLower() } else { '' }
+$got = (Get-FileHash _staging/install.ps1 -Algorithm SHA256).Hash.ToLower()
+if (-not $want -or $want -ne $got) { throw 'STOP: the installer changed after step 1, run step 1 again' }
+$PS = (Get-Process -Id $PID).Path
+& $PS -NoProfile -ExecutionPolicy Bypass -File _staging/install.ps1 apply
+if ($LASTEXITCODE) { throw "STOP: installer apply exited $LASTEXITCODE" }
 ```
 
 ### Откат
@@ -305,19 +267,24 @@ else { "Update available: $Cur -> $New. Say: update lite" }
 1. `lite/VERSION` показывает ожидаемую версию.
 2. Помощник, открытый в `My-Work`, читает `../lite/AGENTS-CORE.md` и называет приёмы из
    `../lite/.claude/skills`.
-3. Квитанция владельцу: дата, было → стало, сумма сошлась, где лежит откат.
+3. Квитанция владельцу по навыку `lite-check`: поля `release`, `archive_verified`, `start`
+   и время шагов берутся из `lite-install.log`, а не по памяти.
 
 ## Если не получилось
 
 | Что видно | Что делать |
 |---|---|
 | `СТОП: контрольная сумма не совпала` / `STOP: checksum mismatch` | Ничего не заменено. Повторить позже; повторилось: написать Антону, архив не использовать |
-| `curl: (22) ... 404` или `download ... failed` | Релиза ещё нет или нет сети. Проверить страницу релизов в браузере |
+| `контрольная сумма install.sh не совпала` / `install.ps1 checksum mismatch` | То же: установщик не запускать, написать Антону |
+| `не могу узнать последнюю версию`, `не скачался`, `download ... failed` | Релиза ещё нет или нет сети. Проверить страницу релизов в браузере |
 | `подозрительные пути`, `ссылки на чужие файлы`, `нет lite/...` (`suspicious paths`, `archive has no`) | Архив испорчен или подменён. Не использовать, написать Антону |
-| `чужой источник` (`foreign source`) | Строку `BASE` кто-то поменял. Вернуть адрес из этого файла |
+| `установщик изменился после шага 1` / `archive changed after step 1` | Между шагами кто-то трогал `_staging`. Повторить шаг 1 и снова спросить «да» |
+| `чужой источник` (`foreign source`) | Строку `REL` кто-то поменял. Вернуть адрес из этого файла |
 | `открыт внутри lite` | Открыть помощника в `My-Work` и повторить |
-| Codex просит разрешение на сеть | Нормально: разрешить один раз для этой команды |
+| Codex просит разрешение на сеть | Нормально: разрешить один раз для команды шага 1. Шаг 2 сеть не нужна |
+| Windows: запуск скриптов запрещён политикой | `STOP`. Политику и защиту не трогать; спросить того, кто управляет компьютером |
 | Помощник отказывается скачивать | Попросите прямо: «обнови лайт по UPDATE.md» |
 | После обновления стало хуже | «откати лайт» |
-| `осталась _old` | Замена прервалась. Если `lite` нет: переименовать `_old` в `lite`. Если `lite` есть: удалить `lite-prev` и переименовать `_old` в `lite-prev`. Перед этим показать владельцу `VERSION` всех папок и дождаться «да» |
+| `осталась _old` | Замена прервалась, а состояние неоднозначное (однозначное шаг 2 продолжает сам). Показать владельцу `VERSION` папок `lite`, `_old`, `lite-prev` и дождаться «да». Если `lite` нет: переименовать `_old` в `lite`. Если `lite` есть: перенести `lite-prev` в `_archive` и переименовать `_old` в `lite-prev` |
 | `остался _swap` | Откат прервался. Если `lite` нет: переименовать `_swap` в `lite`. Если `lite-prev` нет: переименовать `_swap` в `lite-prev`. Перед этим показать владельцу `VERSION` всех папок и дождаться «да» |
+| `_archive` растёт | Это прошлые версии и черновики шагов. Рецепт их не удаляет; владелец может удалить папки сам |

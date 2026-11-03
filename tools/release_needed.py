@@ -10,7 +10,8 @@
 Выход: изменённые VERSION и CHANGELOG.md (только bump), печать новой версии.
 Кто зовёт: .github/workflows/autorelease.yml после sync_upstream.py.
 Что ломается без него: релиз выходил бы на каждый прогон (шум) или не выходил бы вовсе.
-Набор = файлы без export-ignore (тот же источник, что git archive). VERSION и CHANGELOG.md
+Набор = файлы без export-ignore (тот же источник, что git archive) плюс installer/ (едет файлами релиза).
+VERSION и CHANGELOG.md
 изменения сами по себе релиза не требуют.
 рельса: stdlib + git, без LLM.
 """
@@ -49,6 +50,7 @@ def shipped_changes(tag):
     head, old = shipped_set("HEAD"), shipped_set(tag)
     changed = {n for n in names if n in head | old}
     changed |= head ^ old  # файл начал или перестал ехать (например, правка export-ignore)
+    changed |= {n for n in names if n.startswith("installer/")}  # установщик едет файлами релиза рядом с архивом
     return sorted(n for n in changed if n not in NOT_A_REASON)
 
 

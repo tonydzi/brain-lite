@@ -62,25 +62,48 @@ POLICY_PATTERNS = [
     (r"(?i)ignore (all|previous|the) (instructions|rules)|игнорируй (правила|floor|закон|инструкции)", "попытка отменить правила"),
 ]
 REQUIRED_IN_UPDATE = [
-    "My-Work/.claude/settings.json",
-    "ШАГ 1 ЗАКОНЧЕН, ничего не заменено",
-    "STEP 1 DONE, nothing replaced",
     "это «да» не заменяет",
-    "LC_ALL=C shasum -a 256 -c zip.sha256 || ",
-    'find "$1" -delete; }',
-    "sha256sum -c zip.sha256 || ",
     "pwd -P",
-    "ReparsePoint",
-    "-band 0xF000) -eq 0xA000",
-    "grep -vE '^lite/'",
-    "grep -q '^l'",
-    "find new -type l",
     "--proto '=https' --proto-redir '=https'",
-    "if ($expected -ne $actual) { throw 'STOP: checksum mismatch' }",
-    "-cnotlike 'lite/*'",
-    "case \"$BASE\" in https://github.com/tonydzi/brain-lite/releases/*)",
-    "-notlike 'https://github.com/tonydzi/brain-lite/releases/*'",
+    'case "$BASE" in https://github.com/tonydzi/brain-lite/releases/download/v*)',
+    "-notlike 'https://github.com/tonydzi/brain-lite/releases/download/v*'",
+    "LC_ALL=C shasum -a 256 _staging/install.sh",
+    "sha256sum _staging/install.sh",
+    '[ "$GOT" = "$WANT" ] ||',
+    "if ($want -ne $got) { throw 'STOP: install.ps1 checksum mismatch' }",
+    "установщик изменился после шага 1",
+    "the installer changed after step 1",
     "lite-prev",
+]
+# Установщик едет файлами релиза рядом с архивом (installer/ в export-ignore), поэтому страж читает
+# его из того же коммита отдельно. Проверки архива живут только здесь: рецепт их не дублирует.
+REQUIRED_IN_INSTALLER = {
+    "installer/install.sh": [
+        '[ "$(sha "$ST/brain-lite.zip")" = "$expected" ] || stop "контрольная сумма не совпала"',
+        "LC_ALL=C shasum -a 256",
+        "grep -vE '^lite/'",
+        "grep -q '^l'",
+        'find "$1" -type l',
+        "My-Work/.claude/settings.json",
+        "ШАГ 1 ЗАКОНЧЕН, ничего не заменено",
+        "архив изменился после шага 1",
+    ],
+    "installer/install.ps1": [
+        "if ((Sha $zipPath) -ne $expected) { Stop-Here 'checksum mismatch' }",
+        "ReparsePoint",
+        "-band 0xF000) -eq 0xA000",
+        "-cnotlike 'lite/*'",
+        "My-Work/.claude/settings.json",
+        "STEP 1 DONE, nothing replaced",
+        "archive changed after step 1",
+    ],
+}
+INSTALLER_FORBIDDEN = [
+    (r"(^|[\s;&|(])(rm|rmdir)\s", "удаление (rm/rmdir): установщик переносит в _archive"),
+    (r"-delete\b", "удаление (find -delete)"),
+    (r"Remove-Item|\bdel\s", "удаление (Remove-Item/del)"),
+    (r"\bcurl\b|\bwget\b|Invoke-WebRequest|Invoke-RestMethod|\birm\b|\biwr\b", "сеть: установщик работает только со скачанным"),
+    (r"Invoke-Expression|\biex\b|\beval\b", "исполнение строки"),
 ]
 LINK_RE = re.compile(r"\]\(([^)\s]+)\)|^\s*\[[^\]]+\]:\s*(\S+)|<([^>\s]+\.md(?:#[^>]*)?)>", re.M)
 
@@ -172,9 +195,31 @@ def main():
         if must not in update:
             problems.append(f"UPDATE.md: нет обязательной проверки «{must}»")
 
+    for path, musts in REQUIRED_IN_INSTALLER.items():
+        r = subprocess.run(["git", "-C", str(root), "show", f"HEAD:{path}"], capture_output=True)
+        if r.returncode != 0:
+            problems.append(f"{path}: нет в коммите (установщик едет файлом релиза)")
+            continue
+        body = r.stdout.decode("utf-8", "replace")
+        for must in musts:
+            if must not in body:
+                problems.append(f"{path}: нет обязательной проверки «{must}»")
+        code = "\n".join(l for l in body.splitlines() if not l.lstrip().startswith("#"))
+        for pat, why in INSTALLER_FORBIDDEN:
+            m = re.search(pat, code, re.M)
+            if m:
+                problems.append(f"{path}: {why} ({m.group(0).strip()!r})")
+        if path.endswith(".ps1") and re.search(rb"[^\x00-\x7F]", r.stdout):
+            problems.append(f"{path}: не только ASCII (сломается в Windows PowerShell 5.1)")
+
     for i, block in enumerate(re.findall(r"```sh\n(.*?)```", update, re.S)):
         if re.search(r"(^|[\s;&|(])rm\s+-[a-zA-Z]*[rf]", block, re.M):
             problems.append(f"UPDATE.md: sh-блок {i} с rm -rf/-f (песочница Codex отвергает рецепт целиком)")
+        if re.search(r"-delete\b|(^|[\s;&|(])(rm|rmdir)\s", block, re.M):
+            problems.append(f"UPDATE.md: sh-блок {i} удаляет файлы (рецепт переносит в _archive)")
+    for i, block in enumerate(re.findall(r"```powershell\n(.*?)```", update, re.S)):
+        if re.search(r"Remove-Item", block):
+            problems.append(f"UPDATE.md: powershell-блок {i} удаляет файлы (рецепт переносит в _archive)")
     for i, block in enumerate(re.findall(r"```powershell\n(.*?)```", update, re.S)):
         if re.search(r"[^\x00-\x7F]", block):
             problems.append(f"UPDATE.md: powershell-блок {i} не только ASCII (сломается в Windows PowerShell 5.1)")

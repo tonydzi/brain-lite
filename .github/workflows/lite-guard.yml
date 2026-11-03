@@ -68,7 +68,11 @@ jobs:
           mkdir rel && gh release download "$TAG" -D rel
           (cd rel && sha256sum -c SHA256SUMS.txt)
           TZ=UTC git archive --format=zip -0 --prefix=lite/ -o rebuilt.zip "$TAG"
-          A=$(sha256sum rebuilt.zip | cut -d' ' -f1); B=$(cut -d' ' -f1 rel/SHA256SUMS.txt)
+          A=$(sha256sum rebuilt.zip | cut -d' ' -f1); B=$(grep ' brain-lite.zip$' rel/SHA256SUMS.txt | cut -d' ' -f1)
           echo "rebuilt=$A published=$B"
           [ "$A" = "$B" ]
           git show "$TAG:UPDATE.md" | cmp - rel/UPDATE.md && echo "UPDATE.md asset == tag"
+          if git cat-file -e "$TAG:installer/install.sh" 2>/dev/null; then
+            git show "$TAG:installer/install.sh" | cmp - rel/install.sh && echo "install.sh asset == tag"
+            git show "$TAG:installer/install.ps1" | cmp - rel/install.ps1 && echo "install.ps1 asset == tag"
+          fi
