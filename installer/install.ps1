@@ -150,8 +150,9 @@ function Invoke-Apply {
     if (Test-Path lite) { Move-Item lite _old }
     Move-Item -LiteralPath $freshLite lite
   }
-  if (Test-Path _old) { Move-ToArchive (Join-Path $Root 'lite-prev') 'lite-prev'; Move-Item _old lite-prev }
+  # Mark before moving _old: a rerun after any later stop does not shift lite-prev.
   if ((Read-State 'swapped') -ne 'yes') { Add-Content -Path (Join-Path $St 'STATE') -Value 'swapped=yes' -Encoding ascii }
+  if (Test-Path _old) { Move-ToArchive (Join-Path $Root 'lite-prev') 'lite-prev'; Move-Item _old lite-prev }
   Set-MyWork
   Move-ToArchive $St 'staging'
   Write-Event 'installed' "id=$id version=$(First-Line lite/VERSION)"

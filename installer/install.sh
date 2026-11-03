@@ -148,8 +148,9 @@ apply() {
     if [ -d lite ]; then mv lite _old; fi
     mv "$ST/fresh/lite" lite
   fi
-  if [ -d _old ]; then stash lite-prev lite-prev; mv _old lite-prev; fi
+  # Отметка до переноса _old: повтор после любого прерывания дальше не сдвинет lite-prev.
   [ "$(state swapped)" = yes ] || echo "swapped=yes" >> "$ST/STATE"
+  if [ -d _old ]; then stash lite-prev lite-prev; mv _old lite-prev; fi
   mywork
   stash "$ST" staging
   event installed "id=$id version=$(cat lite/VERSION)"
