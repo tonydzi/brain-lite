@@ -28,7 +28,11 @@ if (cd "$W/c" && bash tools/make_release.sh "v$(cat VERSION)" --dry-run) >"$W/lo
   [ "$n" = "$want" ] && ok "make_release --dry-run: $n файлов, как в git archive, сумма сходится" || bad "в архиве $n файлов, ждали $want"
   cmp -s "$W/c/dist/VERSION" "$W/c/VERSION" && ok "VERSION идёт отдельным файлом релиза" || bad "dist/VERSION нет или другой"
   cmp -s "$W/c/dist/UPDATE.md" "$W/c/UPDATE.md" && ok "UPDATE.md идёт третьим файлом релиза, тот же, что в теге" || bad "dist/UPDATE.md нет или другой"
-  unzip -Z1 "$W/c/dist/brain-lite.zip" | grep -qE '^lite/(tools|tests|\.github)/' && bad "в архив попала мастерская" || ok "tools/tests/.github в архив не попали"
+  unzip -Z1 "$W/c/dist/brain-lite.zip" | grep -qE '^lite/(tools|tests|\.github|installer)/' && bad "в архив попала мастерская или установщик" || ok "tools/tests/.github/installer в архив не попали"
+  git -C "$W/c" show HEAD:installer/install.sh | cmp -s - "$W/c/dist/install.sh" && git -C "$W/c" show HEAD:installer/install.ps1 | cmp -s - "$W/c/dist/install.ps1" \
+    && ok "install.sh и install.ps1 идут файлами релиза, те же, что в теге" || bad "dist/install.* нет или другие"
+  (cd "$W/c/dist" && [ "$(wc -l < SHA256SUMS.txt | tr -d ' ')" = 3 ] && $SUM -c SHA256SUMS.txt >/dev/null) \
+    && ok "SHA256SUMS.txt: три строки (архив и два установщика), все сходятся" || { bad "SHA256SUMS.txt не на три файла"; cat "$W/c/dist/SHA256SUMS.txt"; }
 else bad "make_release --dry-run упал"; cat "$W/log"; fi
 echo "ИТОГ: $PASS ok, $FAIL FAIL"
 [ "$FAIL" -eq 0 ]

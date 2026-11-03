@@ -8,3 +8,4 @@ tests export-ignore
 .gitignore export-ignore
 CITATION.cff export-ignore
 FOR-ROBOTS.md export-ignore
+installer export-ignore

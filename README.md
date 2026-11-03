@@ -14,8 +14,10 @@
 (Claude Code or Codex): the method's law, 9 skills, a second-brain skeleton and note templates,
 about 30 text files, no scripts, no daemons, no sync, no data of ours. New releases are cut
 automatically when the parent kit improves; the agent checks once a day and the owner applies. Updates come as a
-GitHub release zip with `SHA256SUMS.txt`; your agent verifies, shows the diff and swaps
-`lite/` with `lite-prev/` for rollback. Your own work lives in `My-Work/` and never leaves your machine.
+GitHub release zip with a small installer next to it (`install.sh` / `install.ps1`, not inside the
+library) and `SHA256SUMS.txt` for both; your agent pins one tag, verifies, shows the diff, waits for
+the owner's "yes" and swaps `lite/` with `lite-prev/` for rollback. Nothing is deleted: what moves
+out of the way goes to `_archive/`. Your own work lives in `My-Work/` and never leaves your machine.
 Start in English: [START.en.md](START.en.md) (Russian: [START.md](START.md)). The update recipe [UPDATE.md](UPDATE.md) is bilingual in its STOP messages.
 
 ```
