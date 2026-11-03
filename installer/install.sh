@@ -27,6 +27,7 @@ stash() { # stash <path> <name>: перенести в _archive/<name>-<врем
   [ -e "$1" ] || return 0
   mkdir -p "$ROOT/_archive"
   dest="$ROOT/_archive/$2-$(stamp)-$$"
+  while [ -e "$dest" ]; do dest="$dest-x"; done  # иначе mv положит папку ВНУТРЬ существующей
   mv "$1" "$dest"
   echo "Перенесено в архив: ${dest#"$ROOT"/}"
 }

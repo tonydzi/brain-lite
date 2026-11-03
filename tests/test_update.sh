@@ -172,6 +172,10 @@ L="$(tree_hash "$H/lite")"
 run 0 "$W/r102" >/dev/null; printf 'x' >> "$H/_staging/brain-lite.zip"
 if run 1; then bad "архив изменён между шагами, а шаг 2 пошёл"; else grep -q 'архив изменился после шага 1' "$W/last.log" && [ "$(tree_hash "$H/lite")" = "$L" ] && ok "архив изменён между шагами: стоп, lite цела" || { bad "подмена архива: не та причина"; cat "$W/last.log"; }; fi
 
+publish "$W/r102"; for i in 1 2 3; do (cd "$W" && HOME="$W/home" "$SUT" "$W/block0.sh") >/dev/null 2>&1; done
+[ -z "$(find "$H/_archive" -mindepth 2 -maxdepth 2 -name '_staging*' -print -quit)" ] && [ -z "$(find "$H/_archive" -mindepth 2 -maxdepth 2 -name 'staging-*' -print -quit)" ] \
+  && ok "шаг 1 трижды подряд: каждый прошлый _staging отдельной папкой в _archive, ничего не вложено внутрь" || { bad "шаг 1 подряд вложил папку в _archive"; find "$H/_archive" -maxdepth 2 | head; }
+
 echo "Проверка обновления"
 check() { run 3 "$1"; }
 check "$W/r101" && grep -q 'Обновлений нет, установлено 1.0.1' "$W/last.log" && [ -f "$H/My-Work/.lite-last-check" ] && ok "проверка: та же версия" || { bad "проверка: та же версия"; cat "$W/last.log"; }

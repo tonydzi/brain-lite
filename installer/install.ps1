@@ -29,6 +29,7 @@ function Move-ToArchive($path, $name) {
   $a = Join-Path $Root '_archive'
   New-Item -ItemType Directory -Force $a | Out-Null
   $dest = Join-Path $a ("$name-" + (Stamp))
+  while (Test-Path -LiteralPath $dest) { $dest += '-x' }  # else Move-Item puts the folder INSIDE the existing one
   Move-Item -LiteralPath $path $dest
   "Moved to archive: _archive/" + (Split-Path $dest -Leaf)
 }

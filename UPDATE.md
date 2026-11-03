@@ -83,7 +83,7 @@ echo "Папка установки: $ROOT"
 echo "Источник: $BASE"
 mkdir -p "$ROOT"
 cd "$ROOT"
-if [ -e _staging ]; then mkdir -p _archive; mv _staging "_archive/staging-$(date -u +%Y%m%dT%H%M%SZ)-$$"; fi
+if [ -e _staging ]; then mkdir -p _archive; A="_archive/staging-$(date -u +%Y%m%dT%H%M%SZ)-$$"; while [ -e "$A" ]; do A="$A-x"; done; mv _staging "$A"; fi
 mkdir _staging
 for f in SHA256SUMS.txt VERSION install.sh brain-lite.zip; do
   curl -fsSL --proto '=https' --proto-redir '=https' -o "_staging/$f" "$BASE/$f" || { echo "СТОП: не скачался $f"; exit 1; }
@@ -190,7 +190,7 @@ if ($Base -notlike 'https://github.com/tonydzi/brain-lite/releases/download/v*')
 "Source: $Base"
 New-Item -ItemType Directory -Force $Root | Out-Null
 Set-Location $Root
-if (Test-Path _staging) { New-Item -ItemType Directory -Force _archive | Out-Null; Move-Item _staging ("_archive/staging-" + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ') + "-$PID") }
+if (Test-Path _staging) { New-Item -ItemType Directory -Force _archive | Out-Null; $a = '_archive/staging-' + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ') + "-$PID"; while (Test-Path $a) { $a += '-x' }; Move-Item _staging $a }
 New-Item -ItemType Directory _staging | Out-Null
 foreach ($f in 'SHA256SUMS.txt', 'VERSION', 'install.ps1', 'brain-lite.zip') {
   $ErrorActionPreference = 'Continue'
