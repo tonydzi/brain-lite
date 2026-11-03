@@ -158,6 +158,13 @@ try {
   Run 0 "$W/r102" | Out-Null; [IO.File]::AppendAllText("$H/_staging/brain-lite.zip", 'x')
   if (Run 1 $null) { Bad 'archive changed between steps, step 2 went on' } elseif (((LogText) -match 'archive changed after step 1') -and ((TreeHash "$H/lite") -eq $l)) { Ok 'archive changed between steps: stop, lite intact' } else { Bad 'archive swap: wrong reason'; LogText }
 
+  # Same PowerShell process, same second: archive names must not collide (CI 03.11 put _staging inside an older archive).
+  # Deterministic: the block runs in this process, so its name is staging-<second>-$PID; occupy the next 20 seconds.
+  $t0 = [DateTime]::UtcNow
+  0..20 | ForEach-Object { New-Item -ItemType Directory -Force (Join-Path $H ('_archive/staging-' + $t0.AddSeconds($_).ToString('yyyyMMddTHHmmssZ') + "-$PID")) | Out-Null }
+  Publish "$W/r102"; 1..3 | ForEach-Object { Run 0 $null | Out-Null }
+  $nested = @(Get-ChildItem "$H/_archive" -Directory | ForEach-Object { Get-ChildItem $_.FullName -Directory -Filter '*staging*' -ErrorAction SilentlyContinue })
+  if (-not $nested.Count) { Ok 'step 1 three times in a row: each old _staging is its own folder in _archive' } else { Bad "step 1 in a row nested a folder: $($nested.FullName -join ', ')" }
   'Update check'
   if ((Run 3 "$W/r101") -and ((LogText) -match 'No updates, installed 1.0.1') -and (Test-Path "$H/My-Work/.lite-last-check")) { Ok 'check: same version' } else { Bad 'check: same'; LogText }
   New-Release (Join-Path $W 'r120') '1.2.0'
