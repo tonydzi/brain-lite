@@ -1,5 +1,9 @@
 # Изменения
 
+## 1.2.2 (2026-11-04)
+
+- Изменено в brain-lite: `installer/install.ps1`.
+
 ## 1.2.1 (2026-11-03)
 
 - Изменено в brain-lite: `UPDATE.md`.
