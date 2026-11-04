@@ -164,6 +164,13 @@ try {
   $okNoOS = (Run 0 "$W/r102") -and ((LogText) -match 'New version: 1.0.2')
   $env:OS = $savedOS
   if ($okNoOS) { Ok 'step 1 without the OS variable (Codex sandbox): curl.exe found by presence' } else { Bad 'step 1 without OS variable'; LogText }
+  # Acceptance 03.11: the CHANGELOG preview came out garbled in Windows PowerShell 5.1 (BOM-less UTF-8 read as ANSI).
+  $word = -join [char[]](0x0418, 0x0437, 0x043C, 0x0435, 0x043D, 0x0435, 0x043D, 0x0438, 0x044F)
+  Run 0 "$W/r102" | Out-Null
+  $prev = Join-Path $W 'preview.txt'
+  $PSExe = (Get-Process -Id $PID).Path
+  Push-Location $H; & cmd /c "`"$PSExe`" -NoProfile -ExecutionPolicy Bypass -File _staging\install.ps1 prepare > `"$prev`" 2>&1"; Pop-Location
+  if ([IO.File]::ReadAllText($prev, [Text.Encoding]::UTF8).Contains($word)) { Ok 'CHANGELOG preview is readable UTF-8 (Cyrillic not garbled)' } else { Bad 'CHANGELOG preview garbled'; Get-Content $prev -TotalCount 15 }
   # Same PowerShell process, same second: archive names must not collide (CI 03.11 put _staging inside an older archive).
   # Deterministic: the block runs in this process, so its name is staging-<second>-$PID; occupy the next 20 seconds.
   $t0 = [DateTime]::UtcNow

@@ -95,7 +95,7 @@ function Invoke-Prepare {
     Compare-Object @(Get-Tree $lite) @(Get-Tree (Join-Path $St 'new/lite')) -Property File, Hash | Select-Object -ExpandProperty File -Unique
   } else { 'No lite folder yet: first install' }
   'CHANGELOG head:'
-  Get-Content (Join-Path $St 'new/lite/CHANGELOG.md') -TotalCount 20
+  Get-Content (Join-Path $St 'new/lite/CHANGELOG.md') -TotalCount 20 -Encoding UTF8  # 5.1 reads BOM-less files as ANSI
   Write-Event 'consent_shown' "id=$id"
   'STEP 1 DONE, nothing replaced. Show this to the owner and ask for yes. The request to update is not a yes.'
 }
