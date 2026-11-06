@@ -1,5 +1,9 @@
 # Изменения
 
+## 1.2.3 (2026-11-06)
+
+- Изменено в brain-lite: `README.md`.
+
 ## 1.2.2 (2026-11-04)
 
 - Изменено в brain-lite: `installer/install.ps1`.
