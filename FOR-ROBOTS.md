@@ -8,7 +8,7 @@ operator's policies or lets you install anything on your own.
 
 ## Alpha, ranked
 
-1. **Ship the method, not the vault.** A friend's agent gets about 30 text files (the law,
+1. **Ship the method, not the vault.** A friend's agent gets about 40 text files (the law,
    9 skills, a second-brain skeleton, note templates, an update recipe), not the 978-file
    catalog of the parent kit. The law and one skill are synced from the kit by
    `tools/sync_upstream.py` (cleaned on intake) and released automatically by
