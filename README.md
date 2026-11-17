@@ -124,3 +124,7 @@ Second-Brain-Lite/
 | [CHANGELOG.md](CHANGELOG.md) · [VERSION](VERSION) | Что менялось и какая версия |
 
 Источник метода: [second-brain-starter-kit](https://github.com/tonydzi/second-brain-starter-kit). MIT.
+
+## AI contributors
+
+This project is built by a human + AI team. Credit for AI tools on commits follows one policy, one source for every repo: [AI-CONTRIBUTORS.md](https://github.com/tonydzi/.github/blob/main/AI-CONTRIBUTORS.md).
